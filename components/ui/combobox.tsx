@@ -102,7 +102,7 @@ export function Combobox({ value, onChange, options, load, placeholder = 'Select
     <>
       <button ref={btn} type="button" disabled={disabled} onClick={() => (open ? setOpen(false) : show())}
         onKeyDown={e => { if (!open && (e.key === 'ArrowDown' || e.key === 'Enter' || (e.key.length === 1 && !e.ctrlKey && !e.metaKey))) { e.preventDefault(); show(); if (e.key.length === 1) setTimeout(() => setQ(e.key), 15); } }}
-        className={cx('group flex w-full min-w-0 items-center gap-2 rounded-lg border border-line-strong bg-surface px-3 text-left outline-none transition focus:border-brand focus:ring-4 focus:ring-[var(--ring)] disabled:bg-surface-3 disabled:text-muted', h, className)}>
+        className={cx('group flex w-full min-w-0 items-center gap-2 rounded-md border border-line-strong bg-surface px-3 text-left outline-none transition focus:border-brand focus:ring-3 focus:ring-[var(--ring)] disabled:bg-surface-3 disabled:text-muted', h, className)}>
         <span className={cx('flex-1 truncate', !label && 'text-muted/70')}>{label || placeholder}</span>
         {clearable && value !== null && value !== undefined && value !== '' && !disabled && (
           <span role="button" tabIndex={-1} aria-label="Clear" onClick={e => { e.stopPropagation(); pick(null); }} className="rounded p-0.5 text-muted opacity-0 hover:bg-surface-3 hover:text-ink group-hover:opacity-100"><X className="size-3.5" /></span>
@@ -110,7 +110,7 @@ export function Combobox({ value, onChange, options, load, placeholder = 'Select
         <ChevronDown className="size-4 shrink-0 text-muted" />
       </button>
       {open && rect && createPortal(
-        <div ref={listRef} className="fixed z-[80] overflow-hidden rounded-xl border border-line bg-surface shadow-pop anim-pop"
+        <div ref={listRef} className="fixed z-[80] overflow-hidden rounded-lg border border-line bg-surface shadow-pop anim-pop"
           style={{ left: rect.left, width: Math.max(rect.width, 260), ...(below ? { top: rect.bottom + 4 } : { bottom: window.innerHeight - rect.top + 4 }) }}>
           <div className="flex items-center gap-2 border-b border-line px-3">
             <Search className="size-4 text-muted" />
@@ -123,11 +123,11 @@ export function Combobox({ value, onChange, options, load, placeholder = 'Select
                 const grpHead = o.grp && o.grp !== lastGrp ? (lastGrp = o.grp) : null;
                 return (
                   <div key={`${o.value}-${i}`}>
-                    {grpHead && <div className="px-2.5 pb-1 pt-2 text-[10.5px] font-semibold uppercase tracking-wide text-muted">{grpHead}</div>}
+                    {grpHead && <div className="px-2.5 pb-1 pt-2 text-[12px] capitalize text-muted">{grpHead}</div>}
                     <button type="button" data-i={i} onMouseEnter={() => setActive(i)} onClick={() => pick(o)}
-                      className={cx('flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm', i === active ? 'bg-brand-soft text-ink' : 'text-ink-2')}>
+                      className={cx('flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm', i === active ? 'bg-surface-3 text-ink' : 'text-ink-2')}>
                       <span className="min-w-0 flex-1">{renderOption ? renderOption(o) : <><span className="block truncate">{o.label}</span>{o.hint && <span className="block truncate text-xs text-muted">{o.hint}</span>}</>}</span>
-                      {String(o.value) === String(value ?? '') && <Check className="size-4 text-brand" />}
+                      {String(o.value) === String(value ?? '') && <Check className="size-4 text-ink" />}
                     </button>
                   </div>
                 );

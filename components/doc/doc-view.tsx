@@ -6,7 +6,7 @@ import { ArrowRightLeft, Pencil, Printer, ReceiptText, Trash2, Truck, Undo2 } fr
 import { DOC_META, type DocKind } from '@/lib/calc';
 import { rpc, useRpc, type RpcResult } from '@/lib/client/rpc';
 import { date, dateTime, inWords, KIND_LABEL, money, num } from '@/lib/format';
-import { Badge, Button, Card, cx, ErrorBox, KeyVal, Loading, PageHeader, Tabs } from '@/components/ui/primitives';
+import { Badge, Button, Card, cx, ErrorBox, Id, KeyVal, Loading, PageHeader, Tabs } from '@/components/ui/primitives';
 import { useUI } from '@/components/ui/overlay';
 import { HistoryButton } from '@/components/history';
 import { Guard, useSession } from '@/components/shell/session';
@@ -45,7 +45,7 @@ function View({ kind, id }: { kind: DocKind; id: number }) {
 
   return (
     <div>
-      <PageHeader back={m.listPath} title={<span className="flex items-center gap-3">{d.no} {d.status === 'invoiced' && <Badge tone="blue">Invoiced</Badge>}{kind === 'porder' && <Badge tone={d.approved ? 'green' : 'amber'}>{d.approved ? 'Approved' : 'Pending approval'}</Badge>}</span>}
+      <PageHeader back={m.listPath} title={<span className="flex flex-wrap items-center gap-3"><Id>{d.no}</Id> {d.status === 'invoiced' && <Badge tone="blue">Invoiced</Badge>}{kind === 'porder' && <Badge tone={d.approved ? 'green' : 'amber'}>{d.approved ? 'Approved' : 'Pending approval'}</Badge>}</span>}
         subtitle={`${m.label} · ${date(d.date)} · by ${d.created_by_name ?? '—'}`}
         actions={<>
           <HistoryButton entities={[kind]} />
@@ -55,11 +55,11 @@ function View({ kind, id }: { kind: DocKind; id: number }) {
           {kind === 'purchase' && can('inventory', 'write') && <Button icon={<Truck className="size-4" />} href={`/stock/receive/new?doc=${id}`}>Receive</Button>}
           {kind !== 'sreturn' && kind !== 'preturn' && can(m.module, 'edit') && <Button icon={<Pencil className="size-4" />} href={`/doc/${kind}/${id}/edit`}>Edit</Button>}
           {can(m.module, 'delete') && <Button variant="ghost" icon={<Trash2 className="size-4" />} onClick={del}>Delete</Button>}
+          <Button variant="primary" icon={<Printer className="size-4" />} onClick={() => printAs(mode)}>Print</Button>
         </>} />
 
-      <div className="mb-4 flex flex-wrap items-center gap-2 no-print">
+      <div className="mb-4 no-print">
         <Tabs value={mode} onChange={setMode} tabs={[{ value: 'a4', label: 'Invoice (A4)' }, ...(m.party === 'customer' ? [{ value: 'pos' as const, label: 'POS receipt' }] : []), ...(m.items === 'product' ? [{ value: 'challan' as const, label: m.party === 'customer' ? 'Delivery challan' : 'Receive challan' }] : [])]} />
-        <Button variant="primary" icon={<Printer className="size-4" />} onClick={() => printAs(mode)}>Print</Button>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -108,7 +108,7 @@ function Letterhead({ company, title, no, d }: { company: any; title: string; no
         </div>
       </div>
       <div className="text-right">
-        <p className="text-lg font-bold uppercase tracking-wide">{title}</p>
+        <p className="text-[20px] font-semibold">{title}</p>
         <p className="num mt-1 text-sm font-semibold">{no}</p>
         <p className="text-xs text-neutral-600">Date: {date(d.date)}</p>
         {d.delivery_date && <p className="text-xs text-neutral-600">Delivery: {date(d.delivery_date)}</p>}
@@ -123,15 +123,15 @@ function A4({ data, challan }: { data: D; challan: boolean }) {
   const p = data.party;
   const showSerial = data.notes.show_serial;
   const isWalk = p?.is_walkin;
-  const title = challan ? (m.party === 'customer' ? 'Delivery Challan' : 'Receive Challan') : m.label.replace('Sales Invoice', 'Invoice');
+  const title = challan ? (m.party === 'customer' ? 'Delivery Challan' : 'Receive Challan') : m.label.replace('Sales invoice', 'Invoice').replace(/[a-z]/g, c => c.toUpperCase());
   const lines = data.lines;
   const totalDue = p && !isWalk ? Number(p.balance) : Number(d.total) - Number(d.paid);
   return (
-    <div className="print-area mx-auto min-h-[297mm] w-[210mm] max-w-full rounded-xl border border-line bg-white p-[12mm] text-[12px] text-black shadow-card">
+    <div className="print-area mx-auto min-h-[297mm] w-[210mm] max-w-full rounded-lg border border-line bg-white p-[12mm] text-[12px] text-black">
       <Letterhead company={data.company} title={title} no={d.no} d={d} />
       <div className="mt-4 grid grid-cols-2 gap-6">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">{m.party === 'customer' ? 'Bill to' : 'Supplier'}</p>
+          <p className="text-[11px] font-semibold text-neutral-500">{m.party === 'customer' ? 'Bill to' : 'Supplier'}</p>
           <p className="mt-1 text-sm font-semibold">{isWalk ? d.walkin_name || 'Walk-in Customer' : p?.name}</p>
           {!isWalk && p?.code && <p className="text-xs">{p.code}</p>}
           <p className="text-xs">{isWalk ? d.walkin_mobile : p?.mobile}</p>
@@ -160,8 +160,8 @@ function A4({ data, challan }: { data: D; challan: boolean }) {
                 <td className="px-2 py-1.5">{i + 1}</td>
                 <td className="px-2 py-1.5">
                   <p className="font-medium">{l.name}</p>
-                  <p className="text-[10.5px] text-neutral-600">{[l.code ?? l.service_code, l.model, l.color, l.size, l.warranty_days ? `Warranty ${l.warranty_days} days` : '', l.note].filter(Boolean).join(' · ')}</p>
-                  {showSerial && l.serials.length > 0 && <p className="font-mono text-[10px] text-neutral-700">S/N: {l.serials.join(', ')}</p>}
+                  <p className="text-[11px] text-neutral-600">{[l.code ?? l.service_code, l.model, l.color, l.size, l.warranty_days ? `Warranty ${l.warranty_days} days` : '', l.note].filter(Boolean).join(' · ')}</p>
+                  {showSerial && l.serials.length > 0 && <p className="font-mono text-[11px] text-neutral-700">S/N: {l.serials.join(', ')}</p>}
                 </td>
                 <td className="num px-2 py-1.5 text-right">{num(l.qty)} {l.unit ?? ''}</td>
                 {!challan && <>
@@ -196,7 +196,7 @@ function A4({ data, challan }: { data: D; challan: boolean }) {
         </div>
       )}
       {challan && <p className="mt-4 text-xs">Total items: {num(lines.reduce((a: number, l: any) => a + l.qty, 0))}</p>}
-      {data.notes.invoice_terms && !challan && <p className="mt-6 whitespace-pre-line border-t border-neutral-300 pt-2 text-[10.5px] text-neutral-600">{data.notes.invoice_terms}</p>}
+      {data.notes.invoice_terms && !challan && <p className="mt-6 whitespace-pre-line border-t border-neutral-300 pt-2 text-[11px] text-neutral-600">{data.notes.invoice_terms}</p>}
       <div className="mt-16 grid grid-cols-3 gap-8 text-center text-[11px]">
         <div className="border-t border-black pt-1">{m.party === 'customer' ? 'Customer signature' : 'Supplier signature'}</div>
         <div className="border-t border-black pt-1">Checked by</div>
@@ -211,34 +211,34 @@ function PosReceipt({ data }: { data: D }) {
   const d = data.doc;
   const p = data.party;
   return (
-    <div className="print-area pos-receipt rounded-lg border border-line bg-white p-3 font-mono text-black shadow-card">
+    <div className="print-area pos-receipt rounded-lg border border-line bg-white p-3 font-mono text-black">
       <div className="text-center">
         {data.company?.logo && <img src={data.company.logo} alt="" className="mx-auto mb-1 h-10 object-contain" />}
         <p className="text-sm font-bold">{data.notes.pos_name || data.company?.name}</p>
-        <p className="text-[10px]">{data.company?.saddress || data.company?.address}</p>
-        <p className="text-[10px]">{data.company?.mobile}</p>
+        <p className="text-[11px]">{data.company?.saddress || data.company?.address}</p>
+        <p className="text-[11px]">{data.company?.mobile}</p>
       </div>
-      <div className="my-2 border-y border-dashed border-black py-1 text-[10px]">
+      <div className="my-2 border-y border-dashed border-black py-1 text-[11px]">
         <p>{d.no}</p><p>{dateTime(d.created_at)}</p>
         <p>Customer: {p?.is_walkin ? d.walkin_name || 'Walk-in' : p?.name} {(p?.is_walkin ? d.walkin_mobile : p?.mobile) ?? ''}</p>
         <p>Served by: {d.created_by_name}</p>
       </div>
       {data.lines.map((l: any) => (
-        <div key={l.id} className="mb-1 text-[10.5px]">
+        <div key={l.id} className="mb-1 text-[11px]">
           <p>{l.name}</p>
-          {l.serials.length > 0 && <p className="text-[9.5px]">SN {l.serials.join(', ')}</p>}
+          {l.serials.length > 0 && <p className="text-[11px]">SN {l.serials.join(', ')}</p>}
           <div className="flex justify-between"><span>{num(l.qty)} × {money(l.price, false)}{(l.disc_pct || l.disc) ? ' (disc)' : ''}</span><span>{money(l.subtotal, false)}</span></div>
         </div>
       ))}
-      <div className="mt-2 space-y-0.5 border-t border-dashed border-black pt-1 text-[10.5px]">
+      <div className="mt-2 space-y-0.5 border-t border-dashed border-black pt-1 text-[11px]">
         {([['Subtotal', d.gross], ['Discount', -(Number(d.item_discount) + Number(d.discount))], ['VAT', d.vat], ['AIT', d.ait], [d.other_name || 'Other', d.other], ['Freight', d.freight], ['Points', -d.redeem], ['Less', -d.less], ['Exchange', -d.exchange]] as [string, number][]).filter(([, v]) => Number(v)).map(([k, v]) => (
           <div key={k} className="flex justify-between"><span>{k}</span><span>{money(v, false)}</span></div>
         ))}
-        <div className="flex justify-between border-t border-black pt-0.5 text-[12px] font-bold"><span>TOTAL</span><span>{money(d.total, false)}</span></div>
+        <div className="flex justify-between border-t border-black pt-0.5 text-[12px] font-bold"><span>Total</span><span>{money(d.total, false)}</span></div>
         {data.payments.map((x: any) => <div key={x.id} className="flex justify-between"><span>{x.ledger_name}</span><span>{money(x.amount, false)}</span></div>)}
         <div className="flex justify-between font-bold"><span>Due</span><span>{money(Number(d.total) - Number(d.paid), false)}</span></div>
       </div>
-      <p className="mt-3 text-center text-[10px]">{data.notes.pos_receipt_note}</p>
+      <p className="mt-3 text-center text-[11px]">{data.notes.pos_receipt_note}</p>
     </div>
   );
 }

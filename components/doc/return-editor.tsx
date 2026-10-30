@@ -72,7 +72,7 @@ function Inner({ kind }: { kind: 'sreturn' | 'preturn' }) {
           <Card pad={false} title={<>{src.doc.no} <span className="font-normal text-muted">· {date(src.doc.date)} · {src.party?.name ?? src.doc.walkin_name}</span></>} subtitle={`Invoice total ${money(src.doc.total)}`}>
             <div className="overflow-x-auto">
               <table className="w-full text-[13px]">
-                <thead><tr className="text-[11px] uppercase tracking-wide text-muted">{['Item', 'Sold', 'Returned', 'Rate', 'Return qty', 'Amount'].map(h => <th key={h} className="px-3 py-2 text-left first:pl-4">{h}</th>)}</tr></thead>
+                <thead><tr className="text-[12.5px] text-muted [&>th]:font-normal">{['Item', 'Sold', 'Returned', 'Rate', 'Return qty', 'Amount'].map(h => <th key={h} className="px-3 py-2 text-left first:pl-4">{h}</th>)}</tr></thead>
                 <tbody>
                   {lines.map((l: any) => {
                     const left = r2(l.qty - l.moved_qty);
@@ -82,7 +82,7 @@ function Inner({ kind }: { kind: 'sreturn' | 'preturn' }) {
                         <td className="px-4 py-2.5"><p className="font-medium">{l.name}</p><p className="text-xs text-muted">{l.code} {l.color} {l.size}</p>
                           {serial && <div className="mt-1.5 flex flex-wrap gap-1">{l.returnable_serials.map((s: string) => {
                             const on = (ser[l.id] ?? []).includes(s);
-                            return <button key={s} type="button" onClick={() => { const n = on ? (ser[l.id] ?? []).filter(x => x !== s) : [...(ser[l.id] ?? []), s]; setSer({ ...ser, [l.id]: n }); setQty({ ...qty, [l.id]: n.length }); }} className={`rounded-md border px-1.5 py-0.5 font-mono text-[11px] ${on ? 'border-brand bg-brand-soft text-brand' : 'border-line text-muted'}`}>{s}</button>;
+                            return <button key={s} type="button" onClick={() => { const n = on ? (ser[l.id] ?? []).filter(x => x !== s) : [...(ser[l.id] ?? []), s]; setSer({ ...ser, [l.id]: n }); setQty({ ...qty, [l.id]: n.length }); }} className={`rounded-md border px-1.5 py-0.5 font-mono text-[11px] ${on ? 'border-line-strong bg-surface-3 text-ink' : 'border-line text-muted'}`}>{s}</button>;
                           })}</div>}
                         </td>
                         <td className="num px-3 py-2.5">{num(l.qty)}</td>
@@ -97,9 +97,9 @@ function Inner({ kind }: { kind: 'sreturn' | 'preturn' }) {
               </table>
             </div>
           </Card>
-          <Card title="Settlement" className="lg:sticky lg:top-[72px] lg:self-start">
+          <Card title="Settlement" className="lg:sticky lg:top-6 lg:self-start">
             <Field label="Date"><Input type="date" value={dt} onChange={e => setDt(e.target.value)} /></Field>
-            <div className="mt-4 flex items-baseline justify-between rounded-xl bg-brand-soft px-3 py-3"><span className="text-sm font-semibold text-brand">Return total</span><span className="num text-2xl font-bold">{money(total)}</span></div>
+            <div className="mt-4 flex items-baseline justify-between rounded-lg bg-surface-2 px-4 py-3.5"><span className="text-[14px] font-medium text-ink-2">Return total</span><span className="num text-[28px] font-semibold leading-none">{money(total)}</span></div>
             <p className="mt-3 text-xs font-medium text-ink-2">{kind === 'sreturn' ? 'Refund to customer' : 'Refund received from supplier'} (optional)</p>
             <div className="mt-2 space-y-2">
               {pays.map((p, i) => (

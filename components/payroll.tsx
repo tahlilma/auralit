@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { CheckCircle2, Printer, RotateCcw, Save } from 'lucide-react';
 import { rpc, useRpc } from '@/lib/client/rpc';
 import { money, todayISO } from '@/lib/format';
@@ -46,19 +47,19 @@ export function Attendance() {
   const numIn = (i: number, k: string, r: any) => <Input inputSize="sm" type="number" className="num w-20 text-right" value={r[k]} disabled={r.posted} onChange={e => set(i, k, e.target.value)} />;
   return (
     <Guard module="payroll">
-      <PageHeader title="Attendance & Leave Entry" subtitle={data ? `${MONTHS[month - 1]} ${year} · ${data.days} days · ${data.latePerDay} lates = 1 day deduction` : ' '}
+      <PageHeader title="Attendance & leave entry" subtitle={data ? `${MONTHS[month - 1]} ${year} · ${data.days} days · ${data.latePerDay} lates = 1 day deduction` : ' '}
         actions={<><Field label=""><Input type="date" value={salaryDate} onChange={e => setSalaryDate(e.target.value)} title="Salary date" /></Field><Button variant="primary" icon={<Save className="size-4" />} loading={busy} onClick={save}>Save attendance</Button></>} />
       <Period year={year} month={month} branch={branch} set={p => { if (p.year) setYear(p.year); if (p.month) setMonth(p.month); if ('branch' in p) setBranch(p.branch ?? null); }} />
       <Card className="mt-4" pad={false}>
         {loading && !rows.length ? <Loading /> : (
           <DataTable dense rows={rows} rowKey="employee_id" columns={[
             { key: 'name', label: 'Name', render: r => <div><p className="font-medium">{r.name}</p><p className="text-xs text-muted">{r.code} · {r.designation}</p></div> },
-            { key: 'salary', label: 'G.Salary', render: (r, i) => numIn(i, 'salary', r) },
+            { key: 'salary', label: 'Gross salary', render: (r, i) => numIn(i, 'salary', r) },
             { key: 'absent', label: 'Absent', render: (r, i) => numIn(i, 'absent', r) },
             { key: 'late', label: 'Late', render: (r, i) => numIn(i, 'late', r) },
-            { key: 'leave', label: 'Leave', render: (r, i) => <div>{numIn(i, 'leave', r)}{r.approved_leave > 0 && <p className="text-[10px] text-muted">{r.approved_leave} approved</p>}</div> },
-            { key: 'present_days', label: 'P.Day', render: (r, i) => numIn(i, 'present_days', r) },
-            { key: 'bonus_pct', label: 'F.Bonus (%)', render: (r, i) => numIn(i, 'bonus_pct', r) },
+            { key: 'leave', label: 'Leave', render: (r, i) => <div>{numIn(i, 'leave', r)}{r.approved_leave > 0 && <p className="text-[12px] text-muted">{r.approved_leave} approved</p>}</div> },
+            { key: 'present_days', label: 'Days present', render: (r, i) => numIn(i, 'present_days', r) },
+            { key: 'bonus_pct', label: 'Festival bonus %', render: (r, i) => numIn(i, 'bonus_pct', r) },
             { key: 'posted', label: '', render: r => r.posted ? <Badge tone="green">Posted</Badge> : null },
           ]} empty={<p className="py-10 text-center text-sm text-muted">No active employees. Add employees under Payroll → Employees.</p>} />
         )}
@@ -86,17 +87,17 @@ export function SalarySheet() {
   };
   return (
     <Guard module="payroll">
-      <PageHeader title="Salary Sheet & Payslip" subtitle={`${MONTHS[month - 1]} ${year}`} actions={<><Button variant="ghost" icon={<Printer className="size-4" />} onClick={() => window.print()}>Print sheet</Button><Button icon={<RotateCcw className="size-4" />} onClick={unpost}>Reverse posting</Button><Button variant="primary" icon={<CheckCircle2 className="size-4" />} onClick={post}>Post salary</Button></>} />
+      <PageHeader title="Salary sheet & payslip" subtitle={`${MONTHS[month - 1]} ${year}`} actions={<><Button variant="ghost" icon={<Printer className="size-4" />} onClick={() => window.print()}>Print sheet</Button><Button icon={<RotateCcw className="size-4" />} onClick={unpost}>Reverse posting</Button><Button variant="primary" icon={<CheckCircle2 className="size-4" />} onClick={post}>Post salary</Button></>} />
       <div className="no-print"><Period year={year} month={month} branch={branch} set={p => { if (p.year) setYear(p.year); if (p.month) setMonth(p.month); if ('branch' in p) setBranch(p.branch ?? null); }} /></div>
       <Card className="print-area mt-4" pad={false}>
         <div className="hidden p-4 text-center print:block"><p className="text-lg font-bold">{company?.name}</p><p className="font-semibold">Salary sheet — {MONTHS[month - 1]} {year}</p></div>
         <DataTable dense loading={loading} rows={data?.rows ?? []} totals columns={[
           { key: 'name', label: 'Name', render: r => <div><p className="font-medium">{r.name}</p><p className="text-xs text-muted">{r.code} · {r.designation}</p></div> },
-          { key: 'salary', label: 'G.Salary', type: 'money' }, { key: 'absent', label: 'Absent', type: 'number', total: false }, { key: 'd_absent', label: 'D.Absent', type: 'money' }, { key: 'late', label: 'Late', type: 'number', total: false },
-          { key: 'd_late', label: 'D.Late', type: 'money' }, { key: 'leave', label: 'A.Leave', type: 'number', total: false }, { key: 'present_days', label: 'P.Day', type: 'number', total: false },
-          { key: 'payable', label: 'P.Amo', type: 'money' }, { key: 'bonus_pct', label: 'B(%)', type: 'number', total: false }, { key: 'bonus', label: 'B.Amo', type: 'money' }, { key: 'net', label: 'Net.Pay', type: 'money' },
+          { key: 'salary', label: 'Gross salary', type: 'money' }, { key: 'absent', label: 'Absent', type: 'number', total: false }, { key: 'd_absent', label: 'Absence deduction', type: 'money' }, { key: 'late', label: 'Late', type: 'number', total: false },
+          { key: 'd_late', label: 'Late deduction', type: 'money' }, { key: 'leave', label: 'Approved leave', type: 'number', total: false }, { key: 'present_days', label: 'Days present', type: 'number', total: false },
+          { key: 'payable', label: 'Payable', type: 'money' }, { key: 'bonus_pct', label: 'Bonus %', type: 'number', total: false }, { key: 'bonus', label: 'Bonus', type: 'money' }, { key: 'net', label: 'Net pay', type: 'money' },
           { key: 'posted', label: '', render: r => <div className="flex items-center justify-end gap-1 no-print">{r.posted ? <Badge tone="green">Posted</Badge> : <Badge tone="amber">Draft</Badge>}<Button size="xs" onClick={() => setSlip(r.id)}>Payslip</Button></div> },
-        ]} empty={<p className="py-10 text-center text-sm text-muted">No attendance saved for this month yet. Fill Attendance first.</p>} />
+        ]} empty={<p className="py-10 text-center text-sm text-muted">No attendance saved for this month yet. <Link href="/payroll/attendance" className="text-brand hover:underline">Fill in attendance</Link> first.</p>} />
       </Card>
       <Payslip id={slip} onClose={() => setSlip(null)} />
     </Guard>

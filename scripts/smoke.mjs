@@ -3,7 +3,7 @@
 // Usage: start the app (npm run dev), then: node scripts/smoke.mjs [baseUrl]
 const BASE = process.argv[2] || 'http://localhost:3000';
 let cookie = '';
-const login = await fetch(BASE + '/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'admin@example.com', password: 'admin123' }) });
+const login = await fetch(BASE + '/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'admin@auralit.local', password: 'admin123' }) });
 cookie = login.headers.getSetCookie()[0].split(';')[0];
 async function R(fn, ...args) {
   const r = await fetch(BASE + '/api/rpc', { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: JSON.stringify({ fn, args }) });
@@ -77,5 +77,6 @@ for (const r of cat_) {
 }
 ok(failed === 0, `${cat_.length} reports ran`);
 const dash = await R('admin.dashboard', {});
-ok(dash.overview.sales > 0, 'dashboard has sales');
+ok(dash.current.sales > 0 && dash.series.length > 0, 'dashboard has sales');
+ok(dash.position.some(p => p.kind === 'cash'), 'dashboard shows the cash position');
 console.log('done in', Date.now() - t, 'ms');

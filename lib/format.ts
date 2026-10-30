@@ -117,8 +117,8 @@ export function parseCsv(text: string): Record<string, string>[] {
 }
 
 export const KIND_LABEL: Record<string, string> = {
-  sale: 'Sale', estimate: 'Estimate', sreturn: 'Sales Return', porder: 'Purchase Order', purchase: 'Purchase', preturn: 'Purchase Return',
-  service: 'Service', sestimate: 'Service Estimate', payment: 'Payment', receipt: 'Receipt', journal: 'Journal', contra: 'Transfer',
-  expense: 'Expense', donation: 'Donation', opening: 'Opening', salary: 'Salary', disposal: 'Disposal', bad_claim: 'Supplier Claim',
-  self_bad: 'Bad Stock', warranty: 'Warranty', rebate: 'Rebate', adjust: 'Adjustment', cheque_bounce: 'Cheque Bounce',
+  sale: 'Sale', estimate: 'Estimate', sreturn: 'Sales return', porder: 'Purchase order', purchase: 'Purchase', preturn: 'Purchase return',
+  service: 'Service', sestimate: 'Service estimate', payment: 'Payment', receipt: 'Receipt', journal: 'Journal', contra: 'Transfer',
+  expense: 'Expense', donation: 'Donation', opening: 'Opening', salary: 'Salary', disposal: 'Disposal', bad_claim: 'Supplier claim',
+  self_bad: 'Bad stock', warranty: 'Warranty', rebate: 'Rebate', adjust: 'Adjustment', cheque_bounce: 'Cheque bounce',
 };

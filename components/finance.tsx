@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ChevronRight, Printer } from 'lucide-react';
 import { useRpc } from '@/lib/client/rpc';
 import { money, monthStart, todayISO } from '@/lib/format';
-import { Badge, Button, Card, cx, ErrorBox, Field, Input, Loading, PageHeader, Select, Stat } from '@/components/ui/primitives';
+import { Badge, Button, Card, cx, ErrorBox, Field, Input, KpiStrip, Loading, PageHeader, Select } from '@/components/ui/primitives';
 import { RefSelect } from '@/components/ui/combobox';
 import { DataTable, DateRange } from '@/components/ui/table';
 import { AreaChart } from '@/components/ui/charts';
@@ -17,7 +17,7 @@ const LevelSelect = ({ v, set }: { v: string; set: (v: any) => void }) => (
 const PrintBtn = () => <Button variant="ghost" icon={<Printer className="size-4" />} onClick={() => window.print()}>Print</Button>;
 function PrintHead({ title, sub }: { title: string; sub: string }) {
   const { company } = useSession();
-  return <div className="mb-4 hidden text-center print:block"><p className="text-lg font-bold">{company?.name}</p><p className="font-semibold uppercase">{title}</p><p className="text-xs">{sub}</p></div>;
+  return <div className="mb-4 hidden text-center print:block"><p className="text-lg font-bold">{company?.name}</p><p className="font-semibold">{title}</p><p className="text-xs">{sub}</p></div>;
 }
 
 export function ChartOfAccounts() {
@@ -34,12 +34,12 @@ export function ChartOfAccounts() {
   );
   return (
     <Guard module="financial">
-      <PageHeader title="Chart of Accounts" subtitle="Class → group → sub-group → ledger, with lifetime debit, credit and balance (Dr − Cr). Click a ledger for its statement." actions={<><Button variant="ghost" onClick={() => setOpen(Object.fromEntries((data ?? []).flatMap((c: any) => [[`c${c.id}`, true], ...c.groups.flatMap((g: any) => [[`g${g.id}`, true], ...g.subgroups.map((s: any) => [`s${s.id}`, true])])])))}>Expand all</Button><PrintBtn /></>} />
-      <PrintHead title="Chart of Account" sub={todayISO()} />
+      <PageHeader title="Chart of accounts" subtitle="Class → group → sub-group → ledger, with lifetime debit, credit and balance (Dr − Cr). Click a ledger for its statement." actions={<><Button variant="ghost" onClick={() => setOpen(Object.fromEntries((data ?? []).flatMap((c: any) => [[`c${c.id}`, true], ...c.groups.flatMap((g: any) => [[`g${g.id}`, true], ...g.subgroups.map((s: any) => [`s${s.id}`, true])])])))}>Expand all</Button><PrintBtn /></>} />
+      <PrintHead title="Chart of account" sub={todayISO()} />
       {!data ? <Loading /> : (
         <Card pad={false} className="print-area overflow-x-auto">
           <table className="w-full text-[13.5px]">
-            <thead><tr className="text-[11px] font-semibold uppercase tracking-wide text-muted"><th className="px-3 py-2 text-left">Account head</th><th className="px-3 py-2 text-right">Debit</th><th className="px-3 py-2 text-right">Credit</th><th className="px-3 py-2 text-right">Balance</th></tr></thead>
+            <thead><tr className="text-[12.5px] text-muted"><th className="px-3 py-2.5 text-left font-normal first:pl-5">Account head</th><th className="px-3 py-2.5 text-right font-normal">Debit</th><th className="px-3 py-2.5 text-right font-normal">Credit</th><th className="px-3 py-2.5 text-right font-normal last:pr-5">Balance</th></tr></thead>
             <tbody>
               {data.map((c: any) => (
                 <Fragment key={c.id}>
@@ -74,8 +74,8 @@ export function TrialBalance() {
   const balanced = data && Math.abs(data.totals.cl_dr - data.totals.cl_cr) < 0.01;
   return (
     <Guard module="financial">
-      <PageHeader title="Trial Balance" subtitle={data ? (balanced ? '✓ Debits equal credits' : '⚠ Not balanced') : ' '} actions={<><LevelSelect v={level} set={setLevel} /><DateRange from={from} to={to} onChange={(a, b) => { setFrom(a); setTo(b); }} /><PrintBtn /></>} />
-      <PrintHead title="Trial Balance" sub={`${from || 'Beginning'} → ${to}`} />
+      <PageHeader title="Trial balance" subtitle={data ? (balanced ? '✓ Debits equal credits' : '⚠ Not balanced') : ' '} actions={<><LevelSelect v={level} set={setLevel} /><DateRange from={from} to={to} onChange={(a, b) => { setFrom(a); setTo(b); }} /><PrintBtn /></>} />
+      <PrintHead title="Trial balance" sub={`${from || 'Beginning'} → ${to}`} />
       <Card pad={false} className="print-area">
         <DataTable dense loading={loading} rows={data?.rows ?? []} rowKey="head" totals={data?.totals} columns={[
           { key: 'head', label: 'Head of accounts', render: r => <div><p>{r.head}</p>{level !== 'group' && <p className="text-[11px] text-muted">{r.group_name}</p>}</div> },
@@ -91,7 +91,7 @@ export function TrialBalance() {
 function Section({ title, rows, total, neg }: { title: string; rows: { head: string; group?: string; amount: number }[]; total: number; neg?: boolean }) {
   return (
     <div className="mb-5">
-      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted">{title}</p>
+      <p className="mb-1.5 text-[13px] font-medium text-muted">{title}</p>
       <table className="w-full text-sm"><tbody>
         {rows.map(r => <tr key={r.head} className="border-b border-line"><td className="py-1.5">{r.head}</td><td className="num py-1.5 text-right">{money(neg ? -r.amount : r.amount, false)}</td></tr>)}
         {!rows.length && <tr><td className="py-1.5 text-muted">—</td></tr>}
@@ -108,14 +108,17 @@ export function IncomeStatement() {
   const { data } = useRpc('finance.incomeStatement', [from || undefined, to || undefined, level], [from, to, level]);
   return (
     <Guard module="financial">
-      <PageHeader title="Income Statement" subtitle="Profit & loss for the period" actions={<><LevelSelect v={level} set={setLevel} /><DateRange from={from} to={to} onChange={(a, b) => { setFrom(a); setTo(b); }} /><PrintBtn /></>} />
+      <PageHeader title="Income statement" subtitle="Profit & loss for the period" actions={<><LevelSelect v={level} set={setLevel} /><DateRange from={from} to={to} onChange={(a, b) => { setFrom(a); setTo(b); }} /><PrintBtn /></>} />
       {!data ? <Loading /> : (
         <>
-          <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4 no-print">
-            <Stat label="Revenue" value={money(data.totals.revenue)} /><Stat label="Cost of sales" value={money(data.totals.direct)} /><Stat label="Gross profit" value={money(data.totals.grossProfit)} tone="ok" /><Stat label="Net profit" value={money(data.totals.netProfit)} tone={data.totals.netProfit >= 0 ? 'ok' : 'bad'} />
-          </div>
+          <KpiStrip className="mb-6 no-print" items={[
+            { label: 'Revenue', value: money(data.totals.revenue) },
+            { label: 'Cost of sales', value: money(data.totals.direct) },
+            { label: 'Gross profit', value: money(data.totals.grossProfit) },
+            { label: data.totals.netProfit >= 0 ? 'Net profit' : 'Net loss', value: money(data.totals.netProfit), tone: data.totals.netProfit < 0 ? 'bad' : undefined },
+          ]} />
           <Card className="print-area mx-auto max-w-3xl">
-            <PrintHead title="Income Statement" sub={`${data.from} → ${data.to}`} />
+            <PrintHead title="Income statement" sub={`${data.from} → ${data.to}`} />
             <Section title="Revenue" rows={data.revenue} total={data.totals.revenue} />
             <Section title="Direct expenses" rows={data.direct} total={data.totals.direct} />
             <div className="mb-5 flex justify-between rounded-lg bg-surface-2 px-3 py-2 font-semibold"><span>Gross profit</span><span className="num">{money(data.totals.grossProfit)}</span></div>
@@ -134,11 +137,11 @@ export function BalanceSheet() {
   const { data } = useRpc('finance.balanceSheet', [to, level], [to, level]);
   return (
     <Guard module="financial">
-      <PageHeader title="Balance Sheet" subtitle={data ? (Math.abs(data.totals.assets - data.totals.liabilitiesEquity) < 0.01 ? '✓ Assets equal liabilities + equity' : '⚠ Out of balance') : ' '}
+      <PageHeader title="Balance sheet" subtitle={data ? (Math.abs(data.totals.assets - data.totals.liabilitiesEquity) < 0.01 ? '✓ Assets equal liabilities + equity' : '⚠ Out of balance') : ' '}
         actions={<><LevelSelect v={level} set={setLevel} /><Field label=""><Input type="date" value={to} onChange={e => setTo(e.target.value)} /></Field><PrintBtn /></>} />
       {!data ? <Loading /> : (
         <div className="print-area">
-          <PrintHead title="Balance Sheet" sub={`As of ${data.to}`} />
+          <PrintHead title="Balance sheet" sub={`As of ${data.to}`} />
           <div className="grid gap-4 lg:grid-cols-2">
             <Card title="Assets"><Section title="Assets" rows={data.assets} total={data.totals.assets} /></Card>
             <Card title="Liabilities & equity"><Section title="Liabilities" rows={data.liabilities} total={data.totals.liabilities} /><Section title="Owner's equity" rows={data.equity} total={data.totals.equity} />
@@ -156,19 +159,33 @@ export function FinanceAnalysis() {
   const { data } = useRpc('finance.financeAnalysis', [from || undefined, to || undefined], [from, to]);
   return (
     <Guard module="financial">
-      <PageHeader title="Finance Analysis" subtitle="Key ratios from the ledger" actions={<DateRange from={from} to={to} onChange={(a, b) => { setFrom(a); setTo(b); }} />} />
+      <PageHeader title="Finance analysis" subtitle="Key ratios from the ledger" actions={<DateRange from={from} to={to} onChange={(a, b) => { setFrom(a); setTo(b); }} />} />
       {!data ? <Loading /> : (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-            <Stat label="Revenue" value={money(data.income.revenue)} /><Stat label="Net profit" value={money(data.income.netProfit)} tone={data.income.netProfit >= 0 ? 'ok' : 'bad'} />
-            <Stat label="Total assets" value={money(data.balance.assets)} /><Stat label="Liabilities" value={money(data.balance.liabilities)} /><Stat label="Equity" value={money(data.balance.equity)} />
+          <KpiStrip items={[
+            { label: 'Revenue', value: money(data.income.revenue) },
+            { label: data.income.netProfit >= 0 ? 'Net profit' : 'Net loss', value: money(data.income.netProfit), tone: data.income.netProfit < 0 ? 'bad' : undefined },
+            { label: 'Total assets', value: money(data.balance.assets) },
+            { label: 'Liabilities', value: money(data.balance.liabilities) },
+            { label: 'Equity', value: money(data.balance.equity) },
+          ]} />
+          <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+            <Card title="Revenue, expenses and profit" subtitle="Last 12 months, from the ledger">
+              <AreaChart data={data.trend} xKey="month" series={[{ key: 'revenue', label: 'Revenue', color: 'var(--chart-1)' }, { key: 'expense', label: 'Expenses', color: 'var(--chart-2)' }, { key: 'profit', label: 'Profit', color: 'var(--chart-3)' }]} />
+            </Card>
+            <Card title="Ratios" subtitle="For the selected period" pad={false}>
+              <table className="mt-1 w-full text-[14px]">
+                <tbody>
+                  {data.ratios.map((r: any) => (
+                    <tr key={r.key} className="border-t border-rule first:border-t-0">
+                      <td className="py-2.5 pl-5 pr-3"><p className="text-ink">{r.key}</p><p className="text-[12.5px] text-muted">{r.hint}</p></td>
+                      <td className="num py-2.5 pr-5 text-right text-ink">{r.value}{r.unit === '%' ? '%' : r.unit === '×' ? '×' : ` ${r.unit}`}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-5">
-            {data.ratios.map((r: any) => (
-              <div key={r.key} className="rounded-xl border border-line bg-surface p-4 shadow-card"><p className="text-xs text-muted">{r.key}</p><p className="num mt-1 text-xl font-semibold">{r.value}{r.unit === '%' ? '%' : r.unit === '×' ? '×' : ` ${r.unit}`}</p><p className="mt-1 text-[11px] text-muted">{r.hint}</p></div>
-            ))}
-          </div>
-          <Card title="Revenue, expense and profit — last 12 months"><AreaChart data={data.trend} xKey="month" series={[{ key: 'revenue', label: 'Revenue', color: '#16a34a' }, { key: 'expense', label: 'Expense', color: '#dc2626' }, { key: 'profit', label: 'Profit', color: '#c27a43' }]} /></Card>
           <Card title="Working capital" pad={false}>
             <DataTable dense rowKey="k" rows={[['Current assets', data.position.currentAssets], ['  of which inventory', data.position.inventory], ['  of which receivable', data.position.receivable], ['  of which cash & bank', data.position.cash], ['Current liabilities', data.position.currentLiab], ['Working capital', data.position.currentAssets - data.position.currentLiab]].map(([k, v]) => ({ k, v }))} columns={[{ key: 'k', label: 'Item' }, { key: 'v', label: 'Amount', type: 'money' }]} />
           </Card>
@@ -182,7 +199,7 @@ export function LedgerStatementPage() {
   const [id, setId] = useState<number | null>(null);
   return (
     <Guard module="financial">
-      <PageHeader title="Ledger Statement" subtitle="Running balance of any ledger — customers, suppliers, cash, bank, expense heads, anything." />
+      <PageHeader title="Ledger statement" subtitle="Running balance of any ledger — customers, suppliers, cash, bank, expense heads, anything." />
       <Card><Field label="Ledger"><RefSelect refKey="ledger" value={id} onChange={setId} placeholder="Search ledger by code or name…" /></Field></Card>
       {id && <Card className="mt-4"><LedgerStatement key={id} ledgerId={id} /></Card>}
       {!id && <p className="mt-6 text-center text-sm text-muted">Pick a ledger to see its statement. You can also open statements from <Link className="text-brand" href="/data/customer">customers</Link>, <Link className="text-brand" href="/data/supplier">suppliers</Link> and <Link className="text-brand" href="/data/bank_account">bank accounts</Link>.</p>}

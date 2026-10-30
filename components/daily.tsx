@@ -32,14 +32,14 @@ export function PriceList() {
   const { data, loading } = useRpc('stock.priceList', [{ q, category_id: cat ?? undefined, brand_id: brand ?? undefined }], [q, cat, brand]);
   const cols: Col[] = [
     { key: 'name', label: 'Name', render: r => <button className="text-left font-medium hover:text-brand" onClick={() => setView(r.id)}>{r.name}</button> },
-    { key: 'colors', label: 'Color' }, { key: 'sizes', label: 'Size' }, { key: 'code', label: 'Code' }, { key: 'last_purchase', label: 'Pur. Inv' },
+    { key: 'colors', label: 'Color' }, { key: 'sizes', label: 'Size' }, { key: 'code', label: 'Code' }, { key: 'last_purchase', label: 'Pur. inv' },
     { key: 'barcode', label: 'Barcode', render: r => <span className="font-mono text-xs">{r.barcode}</span> },
-    { key: 'qty', label: 'Available', type: 'number' }, { key: 'old_price', label: 'Old Price', type: 'money' }, { key: 'price', label: 'Current Price', type: 'money' },
-    { key: 'warranty_days', label: 'Warranty', render: r => r.warranty_days ? `${r.warranty_days} days` : '—' }, { key: 'price_updated_at', label: 'Last Update', type: 'datetime' },
+    { key: 'qty', label: 'Available', type: 'number' }, { key: 'old_price', label: 'Old price', type: 'money' }, { key: 'price', label: 'Current price', type: 'money' },
+    { key: 'warranty_days', label: 'Warranty', render: r => r.warranty_days ? `${r.warranty_days} days` : '—' }, { key: 'price_updated_at', label: 'Last update', type: 'datetime' },
   ];
   return (
     <Guard module="daily">
-      <PageHeader title="Price List" actions={<>
+      <PageHeader title="Price list" actions={<>
         <HistoryButton entities={['price']} />
         <Button variant="ghost" icon={<Download className="size-4" />} onClick={() => downloadCsv('price-list', ['Name', 'Code', 'Barcode', 'Qty', 'Old price', 'Price', 'Warranty'], (data ?? []).map((r: any) => [r.name, r.code, r.barcode, r.qty, r.old_price, r.price, r.warranty_days]))}>CSV</Button>
         <Button variant="ghost" icon={<Printer className="size-4" />} onClick={() => window.print()}>Print</Button>
@@ -82,13 +82,13 @@ export function PriceUpdate() {
   };
   const cols: Col[] = [
     { key: 'name', label: 'Name', render: r => <div><p className="font-medium">{r.name}</p><p className="text-xs text-muted">{r.code}</p></div> },
-    { key: 'qty', label: 'Available', type: 'number' }, { key: 'cost', label: 'Cost', type: 'money' }, { key: 'old_price', label: 'Old Price', type: 'money' }, { key: 'price', label: 'Current Price', type: 'money' },
+    { key: 'qty', label: 'Available', type: 'number' }, { key: 'cost', label: 'Cost', type: 'money' }, { key: 'old_price', label: 'Old price', type: 'money' }, { key: 'price', label: 'Current price', type: 'money' },
     { key: 'currency', label: 'Currency', render: r => <Select inputSize="sm" className="w-36" value={edits[r.id]?.currency_id ?? r.currency_id ?? ''} onChange={e => setEdits({ ...edits, [r.id]: { ...edits[r.id], currency_id: Number(e.target.value) || null } })}><option value="">—</option>{currencies.options.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</Select> },
-    { key: 'new', label: 'Update Price', render: r => <Input inputSize="sm" type="number" className="num w-32 text-right" value={edits[r.id]?.price ?? ''} placeholder={String(r.price)} onChange={e => setEdits({ ...edits, [r.id]: { ...edits[r.id], price: e.target.value } })} /> },
+    { key: 'new', label: 'Update price', render: r => <Input inputSize="sm" type="number" className="num w-32 text-right" value={edits[r.id]?.price ?? ''} placeholder={String(r.price)} onChange={e => setEdits({ ...edits, [r.id]: { ...edits[r.id], price: e.target.value } })} /> },
   ];
   return (
     <Guard module="daily" action="edit">
-      <PageHeader back="/daily/prices" title="Add or Update Price" subtitle="Type new prices and save once. Every change is kept in the product's price history."
+      <PageHeader back="/daily/prices" title="Add or update price" subtitle="Type new prices and save once. Every change is kept in the product's price history."
         actions={<Button variant="primary" icon={<Save className="size-4" />} disabled={!changed.length} loading={busy} onClick={save}>Update {changed.length || ''} price(s)</Button>} />
       <Card pad={false}>
         <Filters q={q} setQ={setQ} cat={cat} setCat={setCat} brand={brand} setBrand={setBrand} />
@@ -113,7 +113,7 @@ export function Barcodes() {
   const labels = useMemo(() => (data ?? []).flatMap((r: any) => Array.from({ length: qty[r.id] ?? 0 }, () => r)), [data, qty]);
   return (
     <Guard module="daily" action="print">
-      <PageHeader back="/daily/prices" title="Barcode & Price Stickers" subtitle="Choose how many stickers to print for each product. Barcodes use the product barcode, or its code when no barcode is set."
+      <PageHeader back="/daily/prices" title="Barcode & price stickers" subtitle="Choose how many stickers to print for each product. Barcodes use the product barcode, or its code when no barcode is set."
         actions={<Button variant="primary" icon={<Printer className="size-4" />} disabled={!labels.length} onClick={() => window.print()}>Print {labels.length} sticker(s)</Button>} />
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px] no-print">
         <Card pad={false}>
@@ -146,11 +146,11 @@ function Sticker({ r, o, company }: { r: any; o: { name: boolean; price: boolean
   const b = barcodeSvg(code);
   return (
     <div className="break-inside-avoid rounded border border-neutral-300 bg-white p-1.5 text-center text-black">
-      {o.company && <p className="truncate text-[9px] font-semibold uppercase">{company}</p>}
-      {o.name && <p className="truncate text-[10px]">{r.name}</p>}
+      {o.company && <p className="truncate text-[11px] font-semibold">{company}</p>}
+      {o.name && <p className="truncate text-[11px]">{r.name}</p>}
       <svg viewBox={`0 0 ${b.width} ${o.height}`} className="mx-auto w-full" style={{ height: o.height }} preserveAspectRatio="none">{b.rects.map((x, i) => <rect key={i} x={x.x} y={0} width={x.w} height={o.height} fill="#000" />)}</svg>
-      <p className="font-mono text-[9px] tracking-wider">{code}</p>
-      {o.price && <p className="text-[11px] font-bold">{money(r.price)}</p>}
+      <p className="font-mono text-[11px]">{code}</p>
+      {o.price && <p className="text-[12px] font-semibold">{money(r.price)}</p>}
     </div>
   );
 }

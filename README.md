@@ -22,7 +22,7 @@ This document is the starting point for anyone joining the project. It covers:
 | Measure | Value |
 | --- | --- |
 | Original sidebar entries reproduced | 139 of 139 (every menu item has an equivalent screen) |
-| Original reports reproduced | 93 of 93 (Report Center) |
+| Original reports reproduced | 93 of 93 (Report center) |
 | Master-data / setup screens | 39 (one config-driven engine) |
 | Database tables | 72 |
 | Server (RPC) functions | 127 |
@@ -40,6 +40,7 @@ This document is the starting point for anyone joining the project. It covers:
   5. Branch transfer, disposal and delivery.
 - After the run, the trial balance and the balance sheet balance, and all 93 reports execute without errors.
 - Key screens were checked in a headless browser at desktop and phone widths.
+- The interface was redesigned to read like packaged business software: one quiet frame around a white work sheet, IBM Plex type, and colour kept for figures, status and the one main action. See [6.9](#69-ui-building-blocks).
 
 **Not yet done:** no real data has been migrated from the old system, the Bangla interface is missing, and there is no automated test suite beyond the smoke script. See [section 3](#3-what-is-left).
 
@@ -83,7 +84,8 @@ How the original was studied: we logged in and read every page (read-only) to ca
   - a cash-tendered change calculator
   - keyboard shortcuts: F2 new sale (anywhere), F3 search, F8 hold, F9 save & print, F10 save
 - **One source of truth for money:** every document posts a double-entry journal, so every balance and statement agrees by construction.
-- **Usability:** CSV import/export on every master list, pinned sidebar pages, date-range presets, dark mode, phone layout.
+- **Usability:** CSV import/export on every master list, pinned sidebar pages, date-range presets, dark mode, phone layout. Reports open with this month's results already shown. Stock screens leave out movement columns that have nothing in them (the CSV keeps them all).
+- **An overview that answers questions:** money in hand by cash, bank and mobile wallet with today's in and out, the period's sales and profit against the previous period, who owes the most (with a Collect button), and a queue of cheques, follow-ups, low stock and approvals.
 - **Safety:** you can't edit or delete an invoice that has returns or deliveries. Negative stock is blocked unless you allow it in settings. An edit-lock window is available.
 
 ---
@@ -141,6 +143,7 @@ npm install
 npm run dev                 # http://localhost:3000
 npm run build && npm start  # production
 node scripts/smoke.mjs      # end-to-end check (writes test data — use a throwaway DB)
+node scripts/demo-data.mjs  # sample trading for demos (fresh DB only, see below)
 npx tsc --noEmit            # type-check
 ```
 
@@ -151,13 +154,15 @@ npx tsc --noEmit            # type-check
 - enquiry sources, types and courses of action
 - a walk-in customer, an "Opening Stock" supplier, and an Administrator role and user
 
-**Login:** `admin@example.com` / `admin123`. Change it under Profile.
+**Login:** `admin@auralit.local` / `admin123`. The sign-in page shows this hint only while that password is unchanged (`GET /api/auth` reports it). Change it under Profile.
+
+**Demo data:** with the app running on a fresh database, `node scripts/demo-data.mjs http://localhost:3000` adds 45 days of sample coffee-equipment trading: products with serials, cafés as customers, suppliers, staff, bank and bKash/Nagad accounts, sales, receipts, expenses, estimates, a purchase order and enquiries. It signs in as the default administrator, so run it before changing that password. All of it is invented; never run it against a real company's database.
 
 **Reset to a blank system:** stop the app and delete the `data/` folder. `data/` is git-ignored.
 
 **Backup / restore:**
 
-- Backup: Company & Settings → Data Management → Download backup. This produces a consistent `VACUUM INTO` copy.
+- Backup: Company & settings → Data management → Download backup. This produces a consistent `VACUUM INTO` copy.
 - Restore: stop the app and replace `data/auralit.db` with the backup.
 
 ---
@@ -214,7 +219,7 @@ app/
   login/
 components/
   ui/                     primitives, overlay (modal/drawer/toast/confirm), combobox, table, charts
-  shell/                  session provider + permission Guard, sidebar, topbar (Ctrl+K, notifications, chat)
+  shell/                  session provider + permission Guard, app shell, sidebar, topbar (Ctrl+K, notifications, chat), brand mark
   entity-page.tsx         generic list/form engine
   doc/                    POS/document editor, return editor, list, invoice view/print
   vouchers.tsx, stock.tsx, warranty.tsx, finance.tsx, reports.tsx, payroll.tsx, admin.tsx, settings.tsx, …
@@ -234,6 +239,7 @@ lib/
     rpc.ts                module registry
     api/                  crud, docs, vouchers, stock, ops (warranty/offers/enquiry), payroll, finance, reports, admin
 scripts/smoke.mjs         end-to-end check
+scripts/demo-data.mjs     sample trading for demos
 docs/PLAN.md              original plan and module checklist
 ```
 
@@ -314,12 +320,31 @@ due = total − paid at invoice − receipts tagged with that invoice no (journa
 
 ### 6.9 UI building blocks
 
-- **`components/ui/primitives.tsx`:** Button, Input, Select, Field, Card, PageHeader, Badge, Stat, Tabs, Money.
+**The look.** A tinted frame holds the sidebar and the top bar. The work sits on a white sheet (`#sheet` in `components/shell/app-shell.tsx`) with a hairline edge and 16px corners; the sheet scrolls, the frame stays put. Type is IBM Plex Sans, with IBM Plex Mono for IDs only (invoice, voucher and enquiry numbers, codes, serials). Colour is kept for three jobs:
+
+- figures and the main chart series (deep teal, the `brand` token)
+- status: green, red, amber and blue pills, and deltas coloured by whether the change is good or bad
+- the one main action on a screen: a near-black filled button (`variant="primary"`); everything else is outlined or plain
+
+There are no gradients, shadows on panels, icons in tinted squares, uppercase labels or text under 11px.
+
+**Screen patterns.**
+
+- **List screens** (sales, customers, products, vouchers, cheques, enquiries, users): title row with "More" and the primary "New …" button; optional underline tabs; one toolbar row (search, filters, date range, count on the right); a `DataTable` with `bleed` so the table runs to the sheet edges; a `RowMenu` (⋯) per row. On phones the filters fold behind a Filters button.
+- **Detail screens:** `PageHeader` with breadcrumbs, the ID in mono, actions on the right with Print as the primary.
+- **Settings:** `Section` in `components/settings.tsx`, a label column beside a tinted panel.
+- **Overview** (`app/(app)/dashboard.tsx`): money-position strip, KPI tabs that switch the chart, then debtors, the attention queue, latest invoices and rankings.
+
+**Components.**
+
+- **`components/ui/primitives.tsx`:** Button, Input, Select, Field, Card, PageHeader (with breadcrumbs derived from `lib/nav.ts`), Breadcrumbs, Badge, Id, KpiStrip, Fit, Tabs (underline or segmented), Stat, Money, Empty, Loading.
+  - `Fit` steps a figure's font size down until it fits its cell, so a large amount is never cut off with "…".
+  - `Badge` prints its text in sentence case ("Partially paid").
 - **`overlay.tsx`:** Modal, Drawer, and `useUI()` for `toast()` and `confirm()`.
 - **`combobox.tsx`:** a searchable select with keyboard navigation. Supports static options or async loading. `RefSelect` binds it to a lookup key.
-- **`table.tsx`:** DataTable (sorting, totals row, selection, skeletons), Pager, SearchInput, DateRange with presets.
-- **`charts.tsx`:** dependency-free SVG charts that size themselves to their container.
-- **Theming:** CSS variables in `app/globals.css`, with light and dark sets. Tailwind tokens: `bg-surface`, `text-ink`, `text-muted`, `bg-brand`, `border-line`, `text-ok/bad/warn`.
+- **`table.tsx`:** DataTable (sorting, totals row, selection, skeletons, `bleed`), RowMenu, Pager, SearchInput, DateRange with presets.
+- **`charts.tsx`:** dependency-free SVG charts that size themselves to their container: a 2px line with a hover guide, bars, and thin ranking bars.
+- **Theming:** CSS variables in `app/globals.css`, with light and dark sets. Tailwind tokens: `bg-frame`, `bg-surface`, `bg-surface-2/3`, `text-ink`, `text-ink-2`, `text-muted`, `text-brand`, `border-line`, `border-rule`, `text-ok/bad/warn/info` and their `-soft` fills. Base element rules sit in `@layer base`; unlayered rules would beat the utilities.
 - **Printing:** the shell is hidden with `no-print`. Each printable area uses `print-area`.
 
 ---
@@ -356,6 +381,7 @@ It becomes callable as `rpc('module.fn', ...)`, fully typed, with no registratio
 
 - **Money:** stored as REAL and rounded to 2 decimals with `round2` / `r2` on every write. Displayed with `money()`: ৳ with lakh grouping, e.g. `1,00,000.00`.
 - **Dates:** stored as ISO `YYYY-MM-DD` strings (local time). Timestamps use `datetime('now','localtime')`.
+- **Interface wording:** sentence case for titles, labels, column headers, tabs and buttons ("Sales invoices", "Credit limit"). Acronyms keep their capitals (VAT, SMS, POS). Printed document headings stay in title case ("Purchase Order"). Spell headers out instead of abbreviating them ("Gross salary", not "G.Salary").
 - **Query helpers:** `all()` / `get()` return untyped rows on purpose. Spreading typed rows loses index signatures, so typed rows were more trouble than help.
 - **Transactions:** `tx()` is re-entrant. Nested calls join the outer transaction.
 - **SQL injection:** never interpolate user input into SQL. The few interpolations in `reports.ts` are `Number(...)` casts or constants. List filter keys are regex-checked, and sort keys are checked against the column list.

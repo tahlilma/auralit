@@ -294,41 +294,123 @@ export function activityLog(u: SessionUser, args: { q?: string; user_id?: number
 }
 
 // ═════════════ Dashboard ═════════════
+const MONEY_IN_TYPES = `j.type NOT IN ('contra','opening','journal')`;
+
+function shiftISO(iso: string, days: number) {
+  const d = new Date(iso + 'T00:00:00');
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function spanDays(from: string, to: string) {
+  return Math.round((new Date(to + 'T00:00:00').getTime() - new Date(from + 'T00:00:00').getTime()) / 86400000) + 1;
+}
+
+function periodFigures(from: string, to: string, branchId?: number) {
+  const br = branchId ? 'AND d.branch_id = ?' : '';
+  const bp = branchId ? [branchId] : [];
+  const docSum = (kinds: string, field = 'd.total') => round2(val<number>(`SELECT COALESCE(SUM(${field}),0) FROM docs d WHERE d.kind IN (${kinds}) AND d.date BETWEEN ? AND ? ${br}`, [from, to, ...bp]) ?? 0);
+  const sales = docSum(`'sale'`), service = docSum(`'service'`), sreturn = docSum(`'sreturn'`);
+  const cogs = round2(docSum(`'sale'`, 'd.cost_total') - docSum(`'sreturn'`, 'd.cost_total'));
+  const purchases = docSum(`'purchase'`);
+  const collected = round2(val<number>(`SELECT COALESCE(SUM(jl.debit),0) FROM journal_lines jl JOIN journals j ON j.id = jl.journal_id JOIN ledgers l ON l.id = jl.ledger_id
+    WHERE l.kind IN ('cash','bank','mobile') AND j.date BETWEEN ? AND ? AND ${MONEY_IN_TYPES}`, [from, to]) ?? 0);
+  const expenses = round2(val<number>(`SELECT COALESCE(SUM(jl.debit - jl.credit),0) FROM journal_lines jl JOIN journals j ON j.id = jl.journal_id JOIN ledgers l ON l.id = jl.ledger_id
+    JOIN acc_subgroups s ON s.id = l.subgroup_id JOIN acc_groups g ON g.id = s.group_id
+    WHERE g.class_id = 4 AND g.name <> 'Direct Expense' AND j.date BETWEEN ? AND ?`, [from, to]) ?? 0);
+  const netSales = round2(sales + service - sreturn);
+  const grossProfit = round2(netSales - cogs);
+  return { sales: round2(sales + service), goods: sales, service, sreturn, netSales, cogs, grossProfit, purchases, collected, expenses, netProfit: round2(grossProfit - expenses) };
+}
+
 export function dashboard(u: SessionUser, args: { branch_id?: number; from?: string; to?: string; graph?: 'sale' | 'service' } = {}) {
+  void u;
   const t = today();
   const from = args.from || t.slice(0, 8) + '01';
   const to = args.to || t;
+  const len = spanDays(from, to);
+  const prevTo = shiftISO(from, -1), prevFrom = shiftISO(from, -len);
   const br = args.branch_id ? 'AND d.branch_id = ?' : '';
   const bp = args.branch_id ? [args.branch_id] : [];
-  const sumKind = (kinds: string, f: string, tt: string) => round2(val<number>(`SELECT COALESCE(SUM(d.total),0) FROM docs d WHERE d.kind IN (${kinds}) AND d.date BETWEEN ? AND ? ${br}`, [f, tt, ...bp]) ?? 0);
-  const expense = (f: string, tt: string) => round2(val<number>(`SELECT COALESCE(SUM(jl.debit - jl.credit),0) FROM journal_lines jl JOIN journals j ON j.id = jl.journal_id JOIN ledgers l ON l.id = jl.ledger_id JOIN acc_subgroups s ON s.id = l.subgroup_id JOIN acc_groups g ON g.id = s.group_id WHERE g.class_id = 4 AND l.system_key IS NOT 'COGS' AND j.date BETWEEN ? AND ?`, [f, tt]) ?? 0);
-  const cogs = (f: string, tt: string) => round2(val<number>(`SELECT COALESCE(SUM(d.cost_total),0) FROM docs d WHERE d.kind = 'sale' AND d.date BETWEEN ? AND ? ${br}`, [f, tt, ...bp]) ?? 0) - round2(val<number>(`SELECT COALESCE(SUM(d.cost_total),0) FROM docs d WHERE d.kind = 'sreturn' AND d.date BETWEEN ? AND ? ${br}`, [f, tt, ...bp]) ?? 0);
 
-  const daily = all(`SELECT d.date, COALESCE(SUM(CASE WHEN d.kind IN ('sale','service') THEN d.total END),0) sales, COUNT(CASE WHEN d.kind IN ('sale','service') THEN 1 END) orders
-    FROM docs d WHERE d.kind IN ('sale','service') AND d.date >= date(?, '-29 day') ${br} GROUP BY d.date ORDER BY d.date`, [t, ...bp]);
-  const monthly = all(`SELECT strftime('%Y-%m', d.date) month, COALESCE(SUM(d.total),0) sales FROM docs d WHERE d.kind IN ('sale','service') AND d.date >= date(?, 'start of month', '-11 month') ${br} GROUP BY month ORDER BY month`, [t, ...bp]);
-  const topProducts = all(`SELECT l.product_id, l.name, SUM(l.qty) qty, SUM(l.subtotal) amount FROM doc_lines l JOIN docs d ON d.id = l.doc_id WHERE d.kind = 'sale' AND d.date BETWEEN ? AND ? ${br} AND l.product_id IS NOT NULL GROUP BY l.product_id ORDER BY amount DESC LIMIT 10`, [from, to, ...bp]);
-  const byEmployee = all(`SELECT COALESCE(e.name, u.name, 'Unassigned') name, SUM(d.total) amount, COUNT(*) orders FROM docs d LEFT JOIN employees e ON e.id = d.sales_person_id LEFT JOIN users u ON u.id = d.created_by WHERE d.kind = ? AND d.date BETWEEN ? AND ? ${br} GROUP BY 1 ORDER BY amount DESC LIMIT 10`, [args.graph === 'service' ? 'service' : 'sale', from, to, ...bp]);
-  const dailyIE = all(`SELECT j.date,
-      COALESCE(SUM(CASE WHEN g.class_id = 5 THEN jl.credit - jl.debit END),0) income,
-      COALESCE(SUM(CASE WHEN g.class_id = 4 THEN jl.debit - jl.credit END),0) expense
-    FROM journal_lines jl JOIN journals j ON j.id = jl.journal_id JOIN ledgers l ON l.id = jl.ledger_id JOIN acc_subgroups s ON s.id = l.subgroup_id JOIN acc_groups g ON g.id = s.group_id
-    WHERE j.date BETWEEN ? AND ? AND g.class_id IN (4,5) GROUP BY j.date ORDER BY j.date`, [from, to]).map(r => ({ ...r, profit: round2(r.income - r.expense) }));
-  const sales = sumKind(`'sale'`, from, to), service = sumKind(`'service'`, from, to), sreturn = sumKind(`'sreturn'`, from, to);
-  const purchase = sumKind(`'purchase'`, from, to), preturn = sumKind(`'preturn'`, from, to);
-  const exp = expense(from, to);
-  const cash = all(`SELECT l.kind, COALESCE(SUM(jl.debit - jl.credit),0) balance FROM ledgers l LEFT JOIN journal_lines jl ON jl.ledger_id = l.id WHERE l.kind IN ('cash','bank','mobile') GROUP BY l.kind`);
+  const current = periodFigures(from, to, args.branch_id);
+  const previous = periodFigures(prevFrom, prevTo, args.branch_id);
+
+  // one point per day for short ranges, per month for long ones
+  const monthly = len > 92;
+  const bucket = (col: string) => (monthly ? `strftime('%Y-%m', ${col})` : col);
+  const toMap = (rows: any[]) => new Map(rows.map(r => [r.k, round2(r.v)]));
+  const salesBy = toMap(all(`SELECT ${bucket('d.date')} k, SUM(CASE WHEN d.kind = 'sreturn' THEN -d.total ELSE d.total END) v FROM docs d WHERE d.kind IN ('sale','service','sreturn') AND d.date BETWEEN ? AND ? ${br} GROUP BY k`, [from, to, ...bp]));
+  const purchBy = toMap(all(`SELECT ${bucket('d.date')} k, SUM(d.total) v FROM docs d WHERE d.kind = 'purchase' AND d.date BETWEEN ? AND ? ${br} GROUP BY k`, [from, to, ...bp]));
+  const collBy = toMap(all(`SELECT ${bucket('j.date')} k, SUM(jl.debit) v FROM journal_lines jl JOIN journals j ON j.id = jl.journal_id JOIN ledgers l ON l.id = jl.ledger_id
+    WHERE l.kind IN ('cash','bank','mobile') AND j.date BETWEEN ? AND ? AND ${MONEY_IN_TYPES} GROUP BY k`, [from, to]));
+  const expBy = toMap(all(`SELECT ${bucket('j.date')} k, SUM(jl.debit - jl.credit) v FROM journal_lines jl JOIN journals j ON j.id = jl.journal_id JOIN ledgers l ON l.id = jl.ledger_id
+    JOIN acc_subgroups s ON s.id = l.subgroup_id JOIN acc_groups g ON g.id = s.group_id WHERE g.class_id = 4 AND g.name <> 'Direct Expense' AND j.date BETWEEN ? AND ? GROUP BY k`, [from, to]));
+  const gpBy = toMap(all(`SELECT ${bucket('d.date')} k, SUM(CASE WHEN d.kind = 'sreturn' THEN -(d.total - d.cost_total) WHEN d.kind = 'sale' THEN d.total - d.cost_total ELSE d.total END) v
+    FROM docs d WHERE d.kind IN ('sale','service','sreturn') AND d.date BETWEEN ? AND ? ${br} GROUP BY k`, [from, to, ...bp]));
+  const keys: string[] = [];
+  if (monthly) { for (let d = new Date(from.slice(0, 7) + '-01T00:00:00'); d <= new Date(to + 'T00:00:00'); d.setMonth(d.getMonth() + 1)) keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`); }
+  else for (let i = 0; i < len; i++) keys.push(shiftISO(from, i));
+  const series = keys.map(k => ({ k, sales: salesBy.get(k) ?? 0, collected: collBy.get(k) ?? 0, purchases: purchBy.get(k) ?? 0, expenses: expBy.get(k) ?? 0, profit: gpBy.get(k) ?? 0 }));
+
+  // money position: balance now, and today's movement, per kind of account
+  const position = all(`SELECT l.kind, COUNT(DISTINCT l.id) accounts,
+      COALESCE((SELECT SUM(jl.debit - jl.credit) FROM journal_lines jl JOIN ledgers x ON x.id = jl.ledger_id WHERE x.kind = l.kind), 0) balance,
+      COALESCE((SELECT SUM(jl.debit) FROM journal_lines jl JOIN journals j ON j.id = jl.journal_id JOIN ledgers x ON x.id = jl.ledger_id WHERE x.kind = l.kind AND j.date = ? AND j.type NOT IN ('contra','opening')), 0) inflow,
+      COALESCE((SELECT SUM(jl.credit) FROM journal_lines jl JOIN journals j ON j.id = jl.journal_id JOIN ledgers x ON x.id = jl.ledger_id WHERE x.kind = l.kind AND j.date = ? AND j.type NOT IN ('contra','opening')), 0) outflow
+    FROM ledgers l WHERE l.kind IN ('cash','bank','mobile') AND l.status = 'active' GROUP BY l.kind`, [t, t])
+    .map(r => ({ ...r, balance: round2(r.balance), inflow: round2(r.inflow), outflow: round2(r.outflow) }));
   const receivable = round2(val<number>(`SELECT COALESCE(SUM(jl.debit - jl.credit),0) FROM journal_lines jl JOIN ledgers l ON l.id = jl.ledger_id WHERE l.kind = 'customer'`) ?? 0);
   const payable = round2(val<number>(`SELECT COALESCE(SUM(jl.credit - jl.debit),0) FROM journal_lines jl JOIN ledgers l ON l.id = jl.ledger_id WHERE l.kind = 'supplier'`) ?? 0);
   const stockValue = round2(val<number>(`SELECT COALESCE(SUM(jl.debit - jl.credit),0) FROM journal_lines jl WHERE jl.ledger_id = (SELECT id FROM ledgers WHERE system_key = 'INVENTORY')`) ?? 0);
+  const customersOwing = val<number>(`SELECT COUNT(*) FROM (SELECT l.id FROM journal_lines jl JOIN ledgers l ON l.id = jl.ledger_id WHERE l.kind = 'customer' GROUP BY l.id HAVING SUM(jl.debit - jl.credit) > 0.009)`) ?? 0;
+
+  const todayFig = {
+    sales: round2(val<number>(`SELECT COALESCE(SUM(d.total),0) FROM docs d WHERE d.kind IN ('sale','service') AND d.date = ? ${br}`, [t, ...bp]) ?? 0),
+    invoices: val<number>(`SELECT COUNT(*) FROM docs d WHERE d.kind IN ('sale','service') AND d.date = ? ${br}`, [t, ...bp]) ?? 0,
+  };
+
+  const debtors = all(`SELECT c.id, c.code, c.name, c.mobile, c.ledger_id, c.credit_limit, SUM(jl.debit - jl.credit) due,
+      (SELECT MAX(d.date) FROM docs d WHERE d.customer_id = c.id AND d.kind IN ('sale','service')) last_invoice
+    FROM customers c JOIN journal_lines jl ON jl.ledger_id = c.ledger_id WHERE c.is_walkin = 0 GROUP BY c.id HAVING due > 0.009 ORDER BY due DESC LIMIT 5`)
+    .map(r => ({ ...r, due: round2(r.due), over_limit: r.credit_limit > 0 && r.due > r.credit_limit }));
+
+  const attention = {
+    cheques: get(`SELECT COUNT(*) n, COALESCE(SUM(amount),0) amount FROM cheques WHERE status = 'pending' AND cheque_date <= ?`, [shiftISO(t, 3)]),
+    followups: val<number>(`SELECT COUNT(*) FROM enquiries WHERE status = 'active' AND next_followup <= ?`, [t]) ?? 0,
+    lowStock: all(`SELECT p.id, p.name, p.min_stock, (SELECT COALESCE(SUM(qty),0) FROM stock_moves WHERE product_id = p.id) stock FROM products p
+      WHERE p.status = 'active' AND p.min_stock > 0 AND (SELECT COALESCE(SUM(qty),0) FROM stock_moves WHERE product_id = p.id) <= p.min_stock ORDER BY stock - p.min_stock LIMIT 20`),
+    estimates: get(`SELECT COUNT(*) n, COALESCE(SUM(total),0) amount FROM docs WHERE kind IN ('estimate','sestimate') AND status <> 'invoiced'`),
+    orders: val<number>(`SELECT COUNT(*) FROM docs WHERE kind = 'porder' AND approved = 0 AND status <> 'invoiced'`) ?? 0,
+    leaves: u.is_admin || u.perms.payroll?.edit ? val<number>(`SELECT COUNT(*) FROM leave_apps WHERE status = 'pending'`) ?? 0 : 0,
+  };
+
+  const topProducts = all(`SELECT l.product_id, l.name, SUM(l.qty) qty, SUM(l.subtotal) amount FROM doc_lines l JOIN docs d ON d.id = l.doc_id
+    WHERE d.kind = 'sale' AND d.date BETWEEN ? AND ? ${br} AND l.product_id IS NOT NULL GROUP BY l.product_id ORDER BY amount DESC LIMIT 6`, [from, to, ...bp]).map(r => ({ ...r, amount: round2(r.amount) }));
+  const byEmployee = all(`SELECT COALESCE(e.name, u.name, 'Not assigned') name, SUM(d.total) amount, COUNT(*) orders FROM docs d LEFT JOIN employees e ON e.id = d.sales_person_id LEFT JOIN users u ON u.id = d.created_by
+    WHERE d.kind = ? AND d.date BETWEEN ? AND ? ${br} GROUP BY 1 ORDER BY amount DESC LIMIT 6`, [args.graph === 'service' ? 'service' : 'sale', from, to, ...bp]).map(r => ({ ...r, amount: round2(r.amount) }));
+  const recent = all(`SELECT d.id, d.kind, d.no, d.date, d.total, d.paid, COALESCE(CASE WHEN c.is_walkin = 1 THEN d.walkin_name END, c.name, s.name) party,
+      d.total - d.paid - (SELECT COALESCE(SUM(x.total),0) FROM docs x WHERE x.ref_doc_id = d.id AND x.kind IN ('sreturn','preturn'))
+        - (SELECT COALESCE(SUM(CASE WHEN j.type = 'receipt' THEN jl.credit ELSE jl.debit END),0) FROM journal_lines jl JOIN journals j ON j.id = jl.journal_id WHERE jl.ref_doc_id = d.id AND j.type IN ('receipt','payment')) due
+    FROM docs d LEFT JOIN customers c ON c.id = d.customer_id LEFT JOIN suppliers s ON s.id = d.supplier_id WHERE d.kind IN ('sale','service') ${br} ORDER BY d.id DESC LIMIT 8`, bp)
+    .map(r => ({ ...r, due: round2(r.due) }));
+
   return {
-    range: { from, to },
-    today: { sales: sumKind(`'sale','service'`, t, t), orders: val<number>(`SELECT COUNT(*) FROM docs d WHERE d.kind IN ('sale','service') AND d.date = ? ${br}`, [t, ...bp]) ?? 0, expense: expense(t, t), purchase: sumKind(`'purchase'`, t, t), received: round2(val<number>(`SELECT COALESCE(SUM(jl.debit),0) FROM journal_lines jl JOIN journals j ON j.id = jl.journal_id JOIN ledgers l ON l.id = jl.ledger_id WHERE j.date = ? AND l.kind IN ('cash','bank','mobile')`, [t]) ?? 0) },
-    overview: { sales, service, sreturn, netSales: round2(sales + service - sreturn), purchase, preturn, expense: exp, cogs: cogs(from, to), grossProfit: round2(sales - sreturn - cogs(from, to) + service), receivable, payable, stockValue },
-    cash: Object.fromEntries(cash.map(c => [c.kind, round2(c.balance)])),
-    daily, monthly, topProducts, byEmployee, dailyIE,
+    range: { from, to, days: len, monthly }, prevRange: { from: prevFrom, to: prevTo },
+    current, previous, series, today: todayFig,
+    position, receivable, payable, stockValue, customersOwing,
+    debtors, attention, topProducts, byEmployee, recent,
     branches: all(`SELECT id value, name label FROM branches WHERE status = 'active'`),
-    recent: all(`SELECT d.id, d.kind, d.no, d.date, d.total, d.paid, COALESCE(d.walkin_name, c.name, s.name) party FROM docs d LEFT JOIN customers c ON c.id = d.customer_id LEFT JOIN suppliers s ON s.id = d.supplier_id WHERE d.kind IN ('sale','purchase','service') ORDER BY d.id DESC LIMIT 8`),
   };
 }
 
+/** Small count for the bell: queues that need someone to act today. */
+export function attentionCount(u: SessionUser) {
+  const t = today();
+  const n = (sql: string, p: unknown[] = []) => val<number>(sql, p) ?? 0;
+  return {
+    cheques: n(`SELECT COUNT(*) FROM cheques WHERE status = 'pending' AND cheque_date <= ?`, [t]),
+    followups: n(`SELECT COUNT(*) FROM enquiries WHERE status = 'active' AND next_followup <= ?`, [t]),
+    lowStock: n(`SELECT COUNT(*) FROM products p WHERE p.status = 'active' AND p.min_stock > 0 AND (SELECT COALESCE(SUM(qty),0) FROM stock_moves WHERE product_id = p.id) <= p.min_stock`),
+    leaves: u.is_admin || u.perms.payroll?.edit ? n(`SELECT COUNT(*) FROM leave_apps WHERE status = 'pending'`) : 0,
+  };
+}

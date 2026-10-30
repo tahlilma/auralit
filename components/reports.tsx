@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Download, FileBarChart, Play, Printer, Search, Star } from 'lucide-react';
@@ -21,21 +21,21 @@ export function ReportCenter() {
   const term = q.toLowerCase();
   const list = (data ?? []).filter((r: any) => !term || `${r.title} ${r.desc} ${r.group}`.toLowerCase().includes(term));
   const tile = (r: any) => (
-    <div key={r.key} className="group relative rounded-xl border border-line bg-surface p-3.5 shadow-card transition hover:border-brand/50 hover:shadow-pop">
-      <Link href={`/reports/${r.key}`} className="block pr-6"><p className="text-[13.5px] font-medium text-ink group-hover:text-brand">{r.title}</p><p className="mt-0.5 text-xs text-muted">{r.desc}</p></Link>
-      <button onClick={() => toggle(r.key)} className={cx('absolute right-2.5 top-2.5', favs.includes(r.key) ? 'text-amber-500' : 'text-line-strong hover:text-muted')} aria-label="Favourite"><Star className="size-4" fill={favs.includes(r.key) ? 'currentColor' : 'none'} /></button>
+    <div key={r.key} className="group relative rounded-lg border border-line bg-surface p-3.5 transition-colors hover:border-line-strong hover:bg-surface-2">
+      <Link href={`/reports/${r.key}`} className="block pr-6"><p className="text-[14px] font-medium text-ink">{r.title}</p><p className="mt-0.5 text-[13px] text-muted">{r.desc}</p></Link>
+      <button onClick={() => toggle(r.key)} className={cx('absolute right-2.5 top-2.5', favs.includes(r.key) ? 'text-ink-2' : 'text-line-strong hover:text-muted')} aria-label="Favourite"><Star className="size-4" fill={favs.includes(r.key) ? 'currentColor' : 'none'} /></button>
     </div>
   );
   return (
     <Guard module="report">
-      <PageHeader title="Report Center" subtitle={data ? `${data.length} reports available to you` : ' '} actions={<div className="relative w-72"><Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted" /><Input className="pl-8" autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Find a report…" /></div>} />
+      <PageHeader title="Report center" subtitle={data ? `${data.length} reports available to you` : ' '} actions={<div className="relative w-72"><Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted" /><Input className="pl-8" autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Find a report…" /></div>} />
       {!data ? <Spinner /> : (
         <div className="space-y-6">
-          {favs.length > 0 && !term && <div><p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted"><Star className="size-3.5" /> Favourites</p><div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{data.filter((r: any) => favs.includes(r.key)).map(tile)}</div></div>}
+          {favs.length > 0 && !term && <div><p className="mb-2 flex items-center gap-1.5 text-[13px] font-medium text-ink-2"><Star className="size-3.5" /> Favourites</p><div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{data.filter((r: any) => favs.includes(r.key)).map(tile)}</div></div>}
           {REPORT_GROUPS.map(g => {
             const items = list.filter((r: any) => r.group === g);
             if (!items.length) return null;
-            return <div key={g}><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">{g}</p><div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{items.map(tile)}</div></div>;
+            return <div key={g}><h2 className="mb-2.5 text-[15px] font-semibold text-ink">{g} <span className="ml-1 text-[13px] font-normal text-muted">{items.length}</span></h2><div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{items.map(tile)}</div></div>;
           })}
           {!list.length && <p className="py-10 text-center text-sm text-muted">No report matches “{q}”.</p>}
         </div>
@@ -63,11 +63,13 @@ export function ReportRunner({ reportKey }: { reportKey: string }) {
   const [res, setRes] = useState<Res | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  if (!meta) return <ErrorBox error="Unknown report." />;
-  const run = async () => {
-    setBusy(true); setError(null);
-    try { setRes(await rpc('reports.runReport', reportKey, params)); } catch (e: any) { setError(e.message); setRes(null); } finally { setBusy(false); }
+  const [hint, setHint] = useState<string | null>(null);
+  const run = async (auto = false) => {
+    setBusy(true); setError(null); setHint(null);
+    try { setRes(await rpc('reports.runReport', reportKey, params)); } catch (e: any) { if (auto) setHint(e.message); else setError(e.message); setRes(null); } finally { setBusy(false); }
   };
+  useEffect(() => { if (meta) void run(true); }, [reportKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!meta) return <ErrorBox error="Unknown report." />;
   const csv = () => {
     if (!res) return;
     const rows: (string | number)[][] = [];
@@ -95,12 +97,12 @@ export function ReportRunner({ reportKey }: { reportKey: string }) {
         </form>
       </Card>
       {error && <div className="mt-4"><ErrorBox error={error} /></div>}
-      {!res && !error && <div className="mt-10 flex flex-col items-center gap-2 text-sm text-muted"><FileBarChart className="size-8 text-line-strong" />Set the filters and run the report.</div>}
+      {!res && !error && <div className="mt-10 flex flex-col items-center gap-2 text-sm text-muted">{busy ? <Spinner /> : <><FileBarChart className="size-8 text-line-strong" />{hint ? `${hint.replace(/\.$/, '')}, then run the report.` : 'Set the filters and run the report.'}</>}</div>}
       {res && (
         <div className={cx('print-area mt-4', meta.landscape && 'print:[zoom:0.8]')}>
           <div className="mb-3 text-center">
             <p className="text-lg font-bold">{company?.name}</p>
-            <p className="text-sm font-semibold uppercase tracking-wide">{meta.title}</p>
+            <p className="text-[15px] font-semibold">{meta.title}</p>
             <p className="text-xs text-muted">{params.from || params.to ? `${params.from ? date(params.from) : 'Beginning'} → ${date(params.to || todayISO())}` : `As of ${date(todayISO())}`}</p>
           </div>
           {res.sections.map((s, i) => (

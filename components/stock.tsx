@@ -7,7 +7,7 @@ import { rpc, useRpc } from '@/lib/client/rpc';
 import { date, downloadCsv, money, num, todayISO } from '@/lib/format';
 import { Button, Card, cx, ErrorBox, Field, IconButton, Input, Loading, PageHeader, Select, Tabs, Textarea } from '@/components/ui/primitives';
 import { Combobox, type Opt } from '@/components/ui/combobox';
-import { DataTable, DateRange, Pager, SearchInput, type Col } from '@/components/ui/table';
+import { DataTable, DateRange, Pager, RowMenu, SearchInput, type Col } from '@/components/ui/table';
 import { useUI } from '@/components/ui/overlay';
 import { HistoryButton } from '@/components/history';
 import { ProductDetails } from '@/components/product-details';
@@ -15,13 +15,13 @@ import { Guard, useSession } from '@/components/shell/session';
 
 export type SKind = 'transfer_b' | 'transfer_w' | 'delivery' | 'receive' | 'disposal' | 'bad_claim' | 'self_bad';
 const META: Record<SKind, { label: string; plural: string; module: string; hint: string }> = {
-  transfer_b: { label: 'Transfer From Branch', plural: 'Branch Transfers', module: 'inventory', hint: 'Move stock from a branch to another branch or a warehouse.' },
-  transfer_w: { label: 'Transfer From Warehouse', plural: 'Warehouse Transfers', module: 'inventory', hint: 'Move stock from a warehouse to a branch or another warehouse.' },
-  delivery: { label: 'Product Delivery', plural: 'Product Deliveries', module: 'inventory', hint: 'Record goods handed over against a sales invoice (supports partial delivery).' },
-  receive: { label: 'Product Received', plural: 'Products Received', module: 'inventory', hint: 'Record goods physically received against a purchase invoice.' },
-  disposal: { label: 'Product Disposal', plural: 'Product Disposals', module: 'inventory', hint: 'Write off damaged or expired stock; any recovered amount is booked.' },
-  bad_claim: { label: 'Claim To Supplier', plural: 'Supplier Bad-Stock Claims', module: 'warranty', hint: 'Return faulty units (warranty or general stock) to a supplier for credit.' },
-  self_bad: { label: 'Self Stock Manage', plural: 'Self Bad-Stock Records', module: 'warranty', hint: 'Repair faulty warranty units back into stock or write them off.' },
+  transfer_b: { label: 'Transfer from branch', plural: 'Branch transfers', module: 'inventory', hint: 'Move stock from a branch to another branch or a warehouse.' },
+  transfer_w: { label: 'Transfer from warehouse', plural: 'Warehouse transfers', module: 'inventory', hint: 'Move stock from a warehouse to a branch or another warehouse.' },
+  delivery: { label: 'Product delivery', plural: 'Product deliveries', module: 'inventory', hint: 'Record goods handed over against a sales invoice (supports partial delivery).' },
+  receive: { label: 'Product received', plural: 'Products received', module: 'inventory', hint: 'Record goods physically received against a purchase invoice.' },
+  disposal: { label: 'Product disposal', plural: 'Product disposals', module: 'inventory', hint: 'Write off damaged or expired stock; any recovered amount is booked.' },
+  bad_claim: { label: 'Claim to supplier', plural: 'Supplier bad-stock claims', module: 'warranty', hint: 'Return faulty units (warranty or general stock) to a supplier for credit.' },
+  self_bad: { label: 'Self stock manage', plural: 'Self bad-stock records', module: 'warranty', hint: 'Repair faulty warranty units back into stock or write them off.' },
 };
 
 type L = { key: string; product_id?: number; color_id?: number | null; size_id?: number | null; name: string; code?: string; mode?: string; qty: number; max?: number; serial?: string; doc_line_id?: number; claim_id?: number; cost?: number; action?: string };
@@ -131,7 +131,7 @@ function Editor({ kind }: { kind: SKind }) {
           <Card title={`Items (${lines.length})`} pad={false}>
             {!lines.length ? <p className="px-4 py-10 text-center text-sm text-muted">No items yet.</p> : (
               <table className="w-full text-[13px]">
-                <thead><tr className="text-[11px] uppercase tracking-wide text-muted"><th className="px-4 py-2 text-left">Item</th>{kind === 'self_bad' && <th className="px-2 py-2 text-left">Action</th>}<th className="w-28 px-2 py-2 text-right">{kind === 'delivery' || kind === 'receive' ? 'Now' : 'Qty'}</th>{(showStockPicker) && <th className="px-2 py-2 text-left">Serials</th>}<th className="w-10" /></tr></thead>
+                <thead><tr className="text-[12.5px] text-muted [&>th]:font-normal"><th className="px-5 py-2.5 text-left">Item</th>{kind === 'self_bad' && <th className="px-2 py-2 text-left">Action</th>}<th className="w-28 px-2 py-2 text-right">{kind === 'delivery' || kind === 'receive' ? 'Now' : 'Qty'}</th>{(showStockPicker) && <th className="px-2 py-2 text-left">Serials</th>}<th className="w-10" /></tr></thead>
                 <tbody>
                   {lines.map(l => (
                     <tr key={l.key} className="border-t border-line">
@@ -147,7 +147,7 @@ function Editor({ kind }: { kind: SKind }) {
             )}
           </Card>
         </div>
-        <Card className="lg:sticky lg:top-[72px] lg:self-start">
+        <Card className="lg:sticky lg:top-6 lg:self-start">
           {kind === 'disposal' && (
             <div className="mb-3 grid gap-3">
               <Field label="Recovered amount" hint="Money recovered from scrap/salvage (optional)"><Input type="number" className="num text-right" value={recover} onChange={e => setRecover(e.target.value === '' ? '' : Number(e.target.value))} /></Field>
@@ -217,24 +217,25 @@ function SList({ kind }: { kind: SKind }) {
     { key: 'note', label: 'Note', render: r => <span className="line-clamp-1 text-xs text-muted">{r.note}</span> },
     { key: 'created_by_name', label: 'By', render: r => <span className="text-xs text-muted">{r.created_by_name}</span> },
     { key: '__a', label: '', align: 'right', width: '1%', render: r => (
-      <div className="flex justify-end gap-0.5" onClick={e => e.stopPropagation()}>
-        <IconButton label="View" onClick={() => router.push(`/stock/${kind}/${r.id}`)}><Eye className="size-4" /></IconButton>
-        {can(m.module, 'delete') && <IconButton label="Delete" className="hover:!text-bad" onClick={() => del(r)}><Trash2 className="size-4" /></IconButton>}
-      </div>
+      <RowMenu label={'Actions for ' + r.no} actions={[
+        { label: 'Open', icon: <Eye className="size-4" />, onClick: () => router.push('/stock/' + kind + '/' + r.id) },
+        { label: 'Delete', icon: <Trash2 className="size-4" />, onClick: () => del(r), danger: true, hidden: !can(m.module, 'delete') },
+      ]} />
     ) },
   ];
   return (
     <div>
-      <PageHeader title={m.plural} subtitle={m.hint} actions={<><HistoryButton entities={[kind]} />{can(m.module, 'write') && <Button variant="primary" icon={<Plus className="size-4" />} href={`/stock/${kind}/new`}>New</Button>}</>} />
+      <PageHeader title={m.plural} subtitle={m.hint} actions={<><HistoryButton entities={[kind]} />{can(m.module, 'write') && <Button variant="primary" icon={<Plus className="size-4" />} href={'/stock/' + kind + '/new'}>New {m.label.toLowerCase()}</Button>}</>} />
       {error && <ErrorBox error={error} onRetry={reload} />}
-      <Card pad={false}>
-        <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
-          <SearchInput value={q} onChange={v => { setQ(v); setPage(1); }} placeholder="Search number, invoice, note…" className="w-full sm:w-72" />
+      <div>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <SearchInput value={q} onChange={v => { setQ(v); setPage(1); }} placeholder="Number, invoice or note" className="w-full sm:w-80" />
           <DateRange from={from} to={to} onChange={(a, b) => { setFrom(a); setTo(b); setPage(1); }} />
         </div>
-        <DataTable columns={cols} rows={data?.rows ?? []} loading={loading} onRowClick={r => router.push(`/stock/${kind}/${r.id}`)} />
-        {data && <Pager page={page} size={25} total={data.total} onPage={setPage} />}
-      </Card>
+        <DataTable bleed columns={cols} rows={data?.rows ?? []} loading={loading} onRowClick={r => router.push('/stock/' + kind + '/' + r.id)}
+          empty={<div className="py-14 text-center text-[14px] text-muted">No {m.plural.toLowerCase()} yet.</div>} />
+        {data && data.total > 25 && <Pager flush page={page} size={25} total={data.total} onPage={setPage} />}
+      </div>
     </div>
   );
 }
@@ -247,10 +248,10 @@ export function StockDocView({ id, kind }: { id: number; kind: SKind }) {
   return (
     <div>
       <PageHeader back={`/stock/${kind}`} title={d.no} subtitle={`${META[kind].label} · ${date(d.date)} · by ${d.created_by_name ?? ''}`} actions={<Button icon={<Printer className="size-4" />} onClick={() => window.print()}>Print challan</Button>} />
-      <div className="print-area mx-auto w-[210mm] max-w-full rounded-xl border border-line bg-white p-[12mm] text-[12px] text-black shadow-card">
+      <div className="print-area mx-auto w-[210mm] max-w-full rounded-lg border border-line bg-white p-[12mm] text-[12px] text-black">
         <div className="flex items-start justify-between border-b-2 border-black pb-3">
           <div><p className="text-xl font-bold">{data.company?.name}</p><p className="text-xs">{data.company?.address}</p></div>
-          <div className="text-right"><p className="text-lg font-bold uppercase">{META[kind].label}</p><p className="font-semibold">{d.no}</p><p className="text-xs">Date: {date(d.date)}</p></div>
+          <div className="text-right"><p className="text-[20px] font-semibold">{META[kind].label}</p><p className="font-semibold">{d.no}</p><p className="text-xs">Date: {date(d.date)}</p></div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-4 text-xs">
           {d.from_name && <p><b>From:</b> {d.from_name}</p>}
@@ -285,10 +286,12 @@ function Status({ scope }: { scope: 'branch' | 'warehouse' | 'combined' }) {
   const setup = useRpc('docs.docSetup', ['sale'], []);
   const locs = useRpc('crud.lookup', [scope === 'warehouse' ? 'warehouse' : 'branch'], [scope]);
   const { data, loading } = useRpc('stock.stockStatus', [{ scope, loc_id: loc ?? undefined, q, category_id: cat ?? undefined, only_stock: only }], [scope, loc, q, cat, only]);
-  const title = { branch: 'Branch Stock Status', warehouse: 'Warehouse Stock Status', combined: 'All Over Stock (Warehouse + Branch)' }[scope];
+  const title = { branch: 'Branch stock', warehouse: 'Warehouse stock', combined: 'Combined stock' }[scope];
+  const rows = data ?? [];
   const cols: Col[] = [
-    { key: 'image', label: '', type: 'image', width: '44px' },
-    { key: 'name', label: 'Item', render: r => <button className="text-left" onClick={() => setView(r.product_id)}><p className="font-medium hover:text-brand">{r.name}</p><p className="text-xs text-muted">{r.code}{r.color ? ` · ${r.color}` : ''}{r.size ? ` · ${r.size}` : ''}{r.warehouse ? ` · ${r.warehouse}` : ''}</p></button> },
+    // The picture column only earns its place once products have pictures.
+    ...(rows.some((r: any) => r.image) ? [{ key: 'image', label: '', type: 'image', width: '44px' } as Col] : []),
+    { key: 'name', label: 'Item', render: r => <button className="min-w-[200px] text-left" onClick={() => setView(r.product_id)}><p className="font-medium hover:text-brand">{r.name}</p><p className="text-xs text-muted">{r.code}{r.color ? ` · ${r.color}` : ''}{r.size ? ` · ${r.size}` : ''}{r.warehouse ? ` · ${r.warehouse}` : ''}</p></button> },
     { key: 'purchase', label: 'Purchase', type: 'number', total: true },
     ...(scope !== 'warehouse' ? [{ key: 'received', label: 'Received', type: 'number', total: true } as Col] : []),
     { key: 'preturn', label: 'P.Return', type: 'number', total: true },
@@ -304,20 +307,24 @@ function Status({ scope }: { scope: 'branch' | 'warehouse' | 'combined' }) {
     { key: 'avg_cost', label: 'Avg cost', type: 'money', total: false },
     { key: 'value', label: 'Value', type: 'money', total: true },
   ];
-  const rows = data ?? [];
+  // Movement columns with nothing in them are left off the screen (the CSV keeps every column).
+  const MOVES = new Set(['received', 'preturn', 't_in', 't_out', 'delivered', 'undelivered', 'sreturn', 'replaced', 'exchange', 'disposed']);
+  const shown = cols.filter(c => !MOVES.has(c.key) || rows.some((r: any) => Number(r[c.key])));
+  const hidden = cols.length - shown.length;
   return (
     <div>
-      <PageHeader title={title} subtitle={`${rows.length} item line(s) · value ${money(rows.reduce((a: number, r: any) => a + r.value, 0))}`}
+      <PageHeader title={title} subtitle={`${scope === 'combined' ? 'Warehouses and branches together · ' : ''}${num(rows.length)} item${rows.length === 1 ? '' : 's'} · value ${money(rows.reduce((a: number, r: any) => a + r.value, 0))}`}
         actions={<><Button variant="ghost" icon={<Download className="size-4" />} onClick={() => downloadCsv(title, cols.filter(c => c.key !== 'image').map(c => String(c.label)), rows.map((r: any) => cols.filter(c => c.key !== 'image').map(c => c.key === 'name' ? `${r.name} ${r.code}` : r[c.key])))}>CSV</Button><Button variant="ghost" icon={<Printer className="size-4" />} onClick={() => window.print()}>Print</Button></>} />
-      <Card pad={false} className="print-area">
-        <div className="flex flex-wrap items-center gap-2 border-b border-line p-3 no-print">
-          <SearchInput value={q} onChange={setQ} placeholder="Search item, code, model…" className="w-full sm:w-72" />
+      <div className="print-area">
+        <div className="mb-3 flex flex-wrap items-center gap-2 no-print">
+          <SearchInput value={q} onChange={setQ} placeholder="Item, code or model" className="w-full sm:w-72" />
           {scope !== 'combined' && <div className="w-52"><Combobox value={loc} onChange={setLoc} options={(locs.data ?? []) as Opt[]} placeholder={scope === 'warehouse' ? 'All warehouses' : 'All branches'} /></div>}
           <div className="w-52"><Combobox value={cat} onChange={setCat} options={(setup.data?.categories ?? []).map((c: any) => ({ value: c.id, label: c.name }))} placeholder="All categories" /></div>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="accent-[var(--brand)]" checked={only} onChange={e => setOnly(e.target.checked)} />Hide zero balance</label>
+          <label className="flex items-center gap-2 text-[14px]"><input type="checkbox" className="accent-[var(--accent)]" checked={only} onChange={e => setOnly(e.target.checked)} />Hide items with no stock</label>
+          {hidden > 0 && <span className="ml-auto text-[13px] text-muted">{hidden} column{hidden === 1 ? '' : 's'} with no movement hidden</span>}
         </div>
-        <DataTable dense columns={cols} rows={rows} loading={loading} rowKey="__k" totals />
-      </Card>
+        <DataTable dense bleed columns={shown} rows={rows} loading={loading} rowKey="__k" totals />
+      </div>
       <ProductDetails id={view} onClose={() => setView(null)} />
     </div>
   );

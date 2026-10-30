@@ -4,7 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { MessageSquarePlus, Plus, Trash2 } from 'lucide-react';
 import { rpc, useRpc } from '@/lib/client/rpc';
 import { date, dateTime, todayISO } from '@/lib/format';
-import { Badge, Button, Card, Field, IconButton, Input, KeyVal, Loading, PageHeader, Select, Tabs, Textarea } from '@/components/ui/primitives';
+import { Badge, Button, Card, cx, Field, IconButton, Id, Input, KeyVal, Loading, PageHeader, Select, Tabs, Textarea } from '@/components/ui/primitives';
 import { Combobox, RefSelect, useLookup } from '@/components/ui/combobox';
 import { DataTable, DateRange, SearchInput, type Col } from '@/components/ui/table';
 import { Drawer, useUI } from '@/components/ui/overlay';
@@ -44,31 +44,31 @@ function Inner() {
     } catch (e: any) { toast(e.message, 'error'); }
   };
   const cols: Col[] = [
-    { key: 'date', label: 'Enquiry Date', type: 'date' },
-    { key: 'customer_name', label: 'Customer', render: r => <div><p className="font-medium">{r.customer_name}</p><p className="text-xs text-muted">{r.mobile} · {r.no}</p></div> },
-    { key: 'product_name', label: 'Model' }, { key: 'location', label: 'Location' }, { key: 'ppdate', label: 'P.Purchase', type: 'date' },
-    { key: 'source', label: 'Source' }, { key: 'type', label: 'Type' },
-    { key: 'next_followup', label: 'Follow-Up', render: r => r.next_followup ? <span className={r.status === 'active' && r.next_followup <= todayISO() ? 'font-medium text-bad' : ''}>{date(r.next_followup)}</span> : '—' },
-    { key: 'status', label: 'Status', type: 'badge' }, { key: 'action', label: 'C.Action' },
-    { key: 'followups', label: '#', type: 'number' },
+    { key: 'no', label: 'Enquiry', render: r => <div><Id className="text-ink">{r.no}</Id><p className="whitespace-nowrap text-[12.5px] text-muted">{date(r.date)}</p></div> },
+    { key: 'customer_name', label: 'Customer', render: r => <div className="min-w-[150px]"><p className="font-medium">{r.customer_name}</p><p className="text-[12.5px] text-muted">{r.mobile}</p></div> },
+    { key: 'product_name', label: 'Model', render: r => <div className="min-w-[170px]">{r.product_name ?? '—'}</div> }, { key: 'location', label: 'Location' }, { key: 'ppdate', label: 'Expected purchase', type: 'date' },
+    // Where the lead came from, with the kind of purchase under it, saves a column.
+    { key: 'source', label: 'Source', render: r => <div className="min-w-[120px]"><p>{r.source ?? '—'}</p>{r.type && <p className="text-[12.5px] text-muted">{r.type}</p>}</div> },
+    { key: 'next_followup', label: 'Next follow-up', render: r => r.next_followup ? <span className={cx('whitespace-nowrap', r.status === 'active' && r.next_followup <= todayISO() && 'font-medium text-bad')}>{date(r.next_followup)}</span> : '—' },
+    { key: 'status', label: 'Status', type: 'badge' }, { key: 'action', label: 'Course of action', render: r => <span className="whitespace-nowrap">{r.action ?? '—'}</span> },
+    { key: 'followups', label: 'Follow-ups', type: 'number' },
     { key: '__a', label: '', align: 'right', render: r => can('enquiry', 'delete') && <IconButton label="Delete" className="hover:!text-bad" onClick={async e => { e.stopPropagation(); if (await confirm({ title: 'Delete enquiry?', danger: true, confirm: 'Delete' })) { await rpc('ops.deleteEnquiry', r.id); reload(); } }}><Trash2 className="size-4" /></IconButton> },
   ];
   return (
     <div>
-      <PageHeader title="Customer Enquiry" subtitle="Capture sales leads, schedule follow-ups and track the course of action."
+      <PageHeader title="Customer enquiry" subtitle="Capture sales leads, schedule follow-ups and track the course of action."
         actions={<><HistoryButton entities={['enquiry']} />{can('enquiry', 'write') && <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setForm({ date: todayISO(), status: 'active' })}>New enquiry</Button>}</>} />
-      <Card pad={false}>
-        <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
-          <Tabs value={tab} onChange={setTab} tabs={[{ value: 'active', label: 'Active' }, { value: 'due', label: 'Follow-up due' }, { value: 'finished', label: 'Finished' }, { value: 'all', label: 'All' }]} />
+      <Tabs className="mb-4" value={tab} onChange={setTab} tabs={[{ value: 'active', label: 'Active' }, { value: 'due', label: 'Follow-up due' }, { value: 'finished', label: 'Finished' }, { value: 'all', label: 'All' }]} />
+      <div className="mb-3 flex flex-wrap items-center gap-2">
           <SearchInput value={q} onChange={setQ} placeholder="Enquiry no, customer or mobile…" className="w-full sm:w-64" />
           <Input value={product} onChange={e => setProduct(e.target.value)} placeholder="Product / model" className="w-40" />
           <div className="w-44"><Combobox value={location} onChange={setLocation} options={locs.options} placeholder="Location" /></div>
-          <div className="w-40"><Combobox value={action} onChange={setAction} options={actions.options} placeholder="C.O.A" /></div>
+          <div className="w-40"><Combobox value={action} onChange={setAction} options={actions.options} placeholder="Course of action" /></div>
           <div className="w-40"><Combobox value={type} onChange={setType} options={types.options} placeholder="Type" /></div>
           <DateRange from={from} to={to} onChange={(a, b) => { setFrom(a); setTo(b); }} />
-        </div>
-        <DataTable columns={cols} rows={data ?? []} loading={loading} onRowClick={r => setOpen(r.id)} />
-      </Card>
+          {data && <span className="ml-auto text-[13px] text-muted">{data.length} enquir{data.length === 1 ? 'y' : 'ies'}</span>}
+      </div>
+      <DataTable bleed columns={cols} rows={data ?? []} loading={loading} onRowClick={r => setOpen(r.id)} />
       <Drawer open={!!form} onClose={() => setForm(null)} title={form?.id ? 'Edit enquiry' : 'New enquiry'} footer={<><Button onClick={() => setForm(null)}>Cancel</Button><Button variant="primary" onClick={save}>Save</Button></>}>
         {form && <EnquiryForm v={form} set={p => setForm({ ...form, ...p })} />}
       </Drawer>
@@ -128,10 +128,10 @@ function FollowUp({ id, onClose, onEdit, onChanged }: { id: number | null; onClo
             </Card>
           )}
           <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">History ({data.followups.length})</p>
+            <p className="mb-2 text-[13px] font-medium text-ink">History <span className="text-muted">{data.followups.length}</span></p>
             <ol className="relative space-y-4 border-l border-line pl-5">
               {data.followups.map((x: any) => (
-                <li key={x.id}><span className="absolute -left-[6px] mt-1.5 size-3 rounded-full border-2 border-surface bg-brand" />
+                <li key={x.id}><span className="absolute -left-[6px] mt-1.5 size-3 rounded-full border-2 border-surface bg-line-strong" />
                   <p className="text-sm">{x.details}</p>
                   <p className="text-xs text-muted">{date(x.date)} · {x.action ?? ''} · {x.status} {x.next_followup && `· next ${date(x.next_followup)}`} · {x.user_name} · {dateTime(x.created_at)}</p>
                 </li>

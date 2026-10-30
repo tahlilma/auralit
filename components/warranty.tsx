@@ -4,7 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { CheckCircle2, ClipboardCheck, PackageCheck, Plus, Printer, Search, Trash2, Wrench } from 'lucide-react';
 import { rpc, useRpc } from '@/lib/client/rpc';
 import { date, dateTime, todayISO } from '@/lib/format';
-import { Badge, Button, Card, Field, IconButton, Input, KeyVal, Loading, PageHeader, Select, Tabs, Textarea } from '@/components/ui/primitives';
+import { Badge, Button, Field, IconButton, Input, KeyVal, Loading, PageHeader, Select, Tabs, Textarea } from '@/components/ui/primitives';
 import { Combobox, RefSelect, type Opt } from '@/components/ui/combobox';
 import { DataTable, SearchInput, type Col } from '@/components/ui/table';
 import { Drawer, Modal, useUI } from '@/components/ui/overlay';
@@ -20,10 +20,10 @@ export const ClaimBadge = ({ s }: { s: string }) => <Badge tone={STATUS[s]?.[1] 
 
 type Stage = 'claims' | 'checking' | 'manage' | 'delivered';
 const TITLES: Record<Stage, [string, string]> = {
-  claims: ['Warranty Claims', 'Receive faulty products from customers. Lookup by serial or invoice number.'],
-  checking: ['Product Checking', 'Technician verdict for received claims.'],
-  manage: ['Manage Product', 'Send to a service center, mark repaired, or replace from stock.'],
-  delivered: ['Warranty Delivered', 'Hand repaired or replaced products back to customers.'],
+  claims: ['Warranty claims', 'Receive faulty products from customers. Look up by serial or invoice number.'],
+  checking: ['Product checking', 'Technician verdict for received claims.'],
+  manage: ['Manage product', 'Send to a service center, mark repaired, or replace from stock.'],
+  delivered: ['Warranty delivered', 'Hand repaired or replaced products back to customers.'],
 };
 
 export function WarrantyPage({ stage }: { stage: Stage }) {
@@ -49,16 +49,16 @@ function Inner({ stage }: { stage: Stage }) {
   };
   const cols: Col[] = [
     { key: 'date', label: 'Date', type: 'date' },
-    { key: 'no', label: 'Claim No', render: r => <button className="font-medium text-brand hover:underline" onClick={() => setView(r.id)}>{r.no}</button> },
+    { key: 'no', label: 'Claim no', render: r => <button className="font-medium text-brand hover:underline" onClick={() => setView(r.id)}>{r.no}</button> },
     { key: 'product', label: 'Product', render: r => <div><p className="font-medium">{r.product}</p><p className="text-xs text-muted">{r.code}</p></div> },
     { key: 'serial', label: 'Serial', render: r => <span className="font-mono text-xs">{r.serial}</span> },
     { key: 'customer', label: 'Customer', render: r => <div className="text-[13px]">{r.customer}<p className="text-xs text-muted">{r.mobile}</p></div> },
     { key: 'invoice', label: 'Invoice' },
-    { key: 'sale_date', label: 'Sales Date', type: 'date' },
-    { key: 'warranty_expiry', label: 'Warranty Expiry', render: r => r.warranty_expiry ? <span className={r.warranty_expiry < todayISO() ? 'text-bad' : ''}>{date(r.warranty_expiry)}</span> : '—' },
-    ...(stage !== 'claims' ? [{ key: 'claim_note', label: 'Claim Note', render: (r: any) => <span className="line-clamp-2 text-xs">{r.claim_note}</span> } as Col] : []),
-    ...(stage === 'checking' || stage === 'manage' ? [{ key: 'check_note', label: 'Checking Note', render: (r: any) => <span className="line-clamp-2 text-xs">{r.check_note}</span> } as Col] : []),
-    ...(stage === 'manage' || stage === 'delivered' ? [{ key: 'delivery_note', label: 'Delivery Note', render: (r: any) => <span className="line-clamp-2 text-xs">{r.service_center ? `${r.service_center}: ` : ''}{r.delivery_note}</span> } as Col] : []),
+    { key: 'sale_date', label: 'Sales date', type: 'date' },
+    { key: 'warranty_expiry', label: 'Warranty expiry', render: r => r.warranty_expiry ? <span className={r.warranty_expiry < todayISO() ? 'text-bad' : ''}>{date(r.warranty_expiry)}</span> : '—' },
+    ...(stage !== 'claims' ? [{ key: 'claim_note', label: 'Claim note', render: (r: any) => <span className="line-clamp-2 text-xs">{r.claim_note}</span> } as Col] : []),
+    ...(stage === 'checking' || stage === 'manage' ? [{ key: 'check_note', label: 'Checking note', render: (r: any) => <span className="line-clamp-2 text-xs">{r.check_note}</span> } as Col] : []),
+    ...(stage === 'manage' || stage === 'delivered' ? [{ key: 'delivery_note', label: 'Delivery note', render: (r: any) => <span className="line-clamp-2 text-xs">{r.service_center ? `${r.service_center}: ` : ''}{r.delivery_note}</span> } as Col] : []),
     { key: 'status', label: 'Status', render: r => <ClaimBadge s={r.status} /> },
     { key: '__a', label: '', align: 'right', render: r => (
       <div className="flex justify-end gap-1">
@@ -72,13 +72,12 @@ function Inner({ stage }: { stage: Stage }) {
   return (
     <div>
       <PageHeader title={TITLES[stage][0]} subtitle={TITLES[stage][1]} actions={<><HistoryButton entities={['claim']} />{stage === 'claims' && can('warranty', 'write') && <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setCreating(true)}>New claim</Button>}</>} />
-      <Card pad={false}>
-        <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
-          <SearchInput value={q} onChange={setQ} placeholder="Claim no, serial, product, customer, invoice…" className="w-full sm:w-80" />
-          {stage === 'delivered' && <Tabs value={sub} onChange={setSub} tabs={[{ value: 'pending', label: 'Ready to deliver' }, { value: 'done', label: 'Delivered' }]} />}
-        </div>
-        <DataTable columns={cols} rows={data ?? []} loading={loading} />
-      </Card>
+      {stage === 'delivered' && <Tabs className="mb-4" value={sub} onChange={setSub} tabs={[{ value: 'pending', label: 'Ready to deliver' }, { value: 'done', label: 'Delivered' }]} />}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <SearchInput value={q} onChange={setQ} placeholder="Claim no, serial, product, customer, invoice…" className="w-full sm:w-80" />
+        {data && <span className="ml-auto text-[13px] text-muted">{data.length} claim{data.length === 1 ? '' : 's'}</span>}
+      </div>
+      <DataTable bleed columns={cols} rows={data ?? []} loading={loading} />
       <NewClaim open={creating} onClose={() => setCreating(false)} onSaved={() => { setCreating(false); reload(); }} />
       <ClaimAction act={act} onClose={() => setAct(null)} onDone={() => { setAct(null); reload(); }} />
       <ClaimView id={view} onClose={() => setView(null)} />
@@ -125,7 +124,7 @@ function NewClaim({ open, onClose, onSaved }: { open: boolean; onClose: () => vo
           <Field label="Product">
             <div className="space-y-1.5">
               {found.lines.map((l: any) => (
-                <label key={l.id} className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 ${line?.id === l.id ? 'border-brand bg-brand-soft' : 'border-line'}`}>
+                <label key={l.id} className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 ${line?.id === l.id ? 'border-line-strong bg-surface-2' : 'border-line'}`}>
                   <input type="radio" checked={line?.id === l.id} onChange={() => setLine(l)} className="accent-[var(--brand)]" />
                   <span className="flex-1 text-sm"><b>{l.name}</b> <span className="text-xs text-muted">{l.code}</span></span>
                   {l.days ? <Badge tone={l.expired ? 'red' : 'green'}>{l.expired ? 'Expired' : 'In warranty'} · {date(l.expiry)}</Badge> : <Badge tone="gray">No warranty</Badge>}
@@ -201,8 +200,8 @@ function ClaimView({ id, onClose }: { id: number | null; onClose: () => void }) 
           {c.claim_note && <div><p className="text-xs text-muted">Complaint</p><p className="text-sm">{c.claim_note}</p></div>}
           {c.check_note && <div><p className="text-xs text-muted">Checking note</p><p className="text-sm">{c.check_note}</p></div>}
           {c.delivery_note && <div><p className="text-xs text-muted">Delivery note</p><p className="text-sm">{c.delivery_note}</p></div>}
-          <div className="no-print"><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Timeline</p>
-            <ol className="relative space-y-3 border-l border-line pl-4">{data.history.map((h: any) => <li key={h.id} className="text-sm"><span className="absolute -left-[5px] mt-1.5 size-2.5 rounded-full bg-brand" />{h.summary}<p className="text-xs text-muted">{h.user_name} · {dateTime(h.at)}</p></li>)}</ol>
+          <div className="no-print"><p className="mb-2 text-[13px] font-medium text-ink">Timeline</p>
+            <ol className="relative space-y-3 border-l border-line pl-4">{data.history.map((h: any) => <li key={h.id} className="text-sm"><span className="absolute -left-[5px] mt-1.5 size-2.5 rounded-full bg-line-strong" />{h.summary}<p className="text-xs text-muted">{h.user_name} · {dateTime(h.at)}</p></li>)}</ol>
           </div>
         </div>
       )}
@@ -214,14 +213,12 @@ export function WarrantyStock() {
   const { data, loading } = useRpc('ops.warrantyStock', [], []);
   return (
     <Guard module="warranty">
-      <PageHeader title="Warranty Product Stock" subtitle="Claims received vs delivered, and faulty units in bad stock." />
-      <Card pad={false}>
-        <DataTable loading={loading} rows={data ?? []} totals columns={[
-          { key: 'image', label: '', type: 'image', width: '44px' }, { key: 'name', label: 'Name', render: r => <div><p className="font-medium">{r.name}</p><p className="text-xs text-muted">{r.code}</p></div> },
+      <PageHeader title="Warranty product stock" subtitle="Claims received vs delivered, and faulty units in bad stock." />
+      <DataTable bleed loading={loading} rows={data ?? []} totals columns={[
+          ...((data ?? []).some((r: any) => r.image) ? [{ key: 'image', label: '', type: 'image', width: '44px' } as Col] : []), { key: 'name', label: 'Name', render: r => <div><p className="font-medium">{r.name}</p><p className="text-xs text-muted">{r.code}</p></div> },
           { key: 'claims_in', label: 'Claims in', type: 'number', total: true }, { key: 'delivered', label: 'Delivered', type: 'number', total: true }, { key: 'available', label: 'In process', type: 'number', total: true },
           { key: 'bad_in', label: 'Bad stock in', type: 'number', total: true }, { key: 'bad_out', label: 'Bad stock out', type: 'number', total: true }, { key: 'bad_available', label: 'Bad stock available', type: 'number', total: true },
         ]} />
-      </Card>
     </Guard>
   );
 }

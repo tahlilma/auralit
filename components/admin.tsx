@@ -7,7 +7,7 @@ import { REPORT_GROUPS, REPORTS } from '@/lib/reports-meta';
 import { dateTime, relative } from '@/lib/format';
 import { Badge, Button, Card, Checkbox, Field, IconButton, Input, Loading, PageHeader, Select, Textarea } from '@/components/ui/primitives';
 import { RefSelect, invalidateLookups } from '@/components/ui/combobox';
-import { DataTable, DateRange, SearchInput } from '@/components/ui/table';
+import { DataTable, DateRange, SearchInput, type Col } from '@/components/ui/table';
 import { Drawer, useUI } from '@/components/ui/overlay';
 import { ImageInput } from '@/components/forms';
 import { Guard, useSession } from '@/components/shell/session';
@@ -28,16 +28,14 @@ export function Users() {
     <Guard module="user">
       <PageHeader title="Users" subtitle="People who can sign in. Their role decides what they can see and do."
         actions={<>{sel.size > 0 && <><Button onClick={() => bulk('active')}>Activate {sel.size}</Button><Button onClick={() => bulk('inactive')}>Deactivate {sel.size}</Button></>}{can('user', 'write') && <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setEdit({ status: 'active', branch_id: 1 })}>New user</Button>}</>} />
-      <Card pad={false}>
-        <DataTable loading={loading} rows={data ?? []} selectable selected={sel} onSelect={setSel} onRowClick={r => setEdit({ ...r, password: '' })} columns={[
-          { key: 'image', label: '', type: 'image', width: '44px' },
+      <DataTable bleed loading={loading} rows={data ?? []} selectable selected={sel} onSelect={setSel} onRowClick={r => setEdit({ ...r, password: '' })} columns={[
+          ...((data ?? []).some((r: any) => r.image) ? [{ key: 'image', label: '', type: 'image', width: '44px' } as Col] : []),
           { key: 'name', label: 'Name', render: r => <div><p className="font-medium">{r.name} {r.id === me.id && <Badge tone="brand">You</Badge>}</p><p className="text-xs text-muted">{r.email}</p></div> },
           { key: 'role', label: 'Access', render: r => <Badge tone="blue">{r.role ?? '—'}</Badge> }, { key: 'branch', label: 'Branch' }, { key: 'mobile', label: 'Mobile' },
           { key: 'last_active', label: 'Last active', render: r => <span className="text-xs text-muted">{r.last_active ? relative(r.last_active) : 'Never'}</span> },
           { key: 'status', label: 'Status', type: 'badge' },
           { key: '__a', label: '', align: 'right', render: r => <div className="flex justify-end" onClick={e => e.stopPropagation()}>{can('user', 'edit') && <IconButton label="Edit" onClick={() => setEdit({ ...r, password: '' })}><Pencil className="size-4" /></IconButton>}{can('user', 'delete') && r.id !== me.id && <IconButton label="Remove" onClick={async () => { if (await confirm({ title: `Deactivate ${r.name}?`, danger: true, confirm: 'Deactivate' })) { await rpc('admin.deleteUser', r.id); reload(); } }}><Trash2 className="size-4" /></IconButton>}</div> },
         ]} />
-      </Card>
       <Drawer open={!!edit} onClose={() => setEdit(null)} title={edit?.id ? 'Edit user' : 'New user'} footer={<><Button onClick={() => setEdit(null)}>Cancel</Button><Button variant="primary" loading={busy} onClick={save}>Save</Button></>}>
         {edit && (
           <div className="grid gap-4 sm:grid-cols-2">
@@ -72,7 +70,7 @@ export function Roles() {
   const setCol = (act: string, v: boolean) => setEdit((e: any) => ({ ...e, perms: Object.fromEntries(ALL_MODULES.map(m => [m.key, { ...(e.perms[m.key] ?? {}), [act]: v }])) }));
   return (
     <Guard module="user">
-      <PageHeader title="Roles & Permissions" subtitle="Each role is a matrix of modules × read / write / edit / delete / print." actions={can('user', 'write') && <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setEdit({ name: '', status: 'active', perms: {} })}>New role</Button>} />
+      <PageHeader title="Roles & permissions" subtitle="Each role is a matrix of modules × read / write / edit / delete / print." actions={can('user', 'write') && <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setEdit({ name: '', status: 'active', perms: {} })}>New role</Button>} />
       <Card pad={false}>
         <DataTable loading={loading} rows={data ?? []} onRowClick={r => setEdit(r)} columns={[
           { key: 'name', label: 'Role', render: r => <span className="font-medium">{r.name} {r.is_admin ? <Badge tone="brand">Full access</Badge> : null}</span> },
@@ -90,10 +88,10 @@ export function Roles() {
               <Field label="Status"><Select value={edit.status} onChange={e => setEdit({ ...edit, status: e.target.value })}><option value="active">Active</option><option value="inactive">Inactive</option></Select></Field>
               <Field label="Description" className="sm:col-span-3"><Textarea rows={2} value={edit.description ?? ''} onChange={e => setEdit({ ...edit, description: e.target.value })} /></Field>
             </div>
-            {edit.is_admin ? <p className="flex items-center gap-2 rounded-lg bg-brand-soft p-3 text-sm text-brand"><ShieldCheck className="size-4" />The administrator role always has full access.</p> : (
+            {edit.is_admin ? <p className="flex items-center gap-2 rounded-lg bg-surface-2 p-3 text-[14px] text-ink-2"><ShieldCheck className="size-4" />The administrator role always has full access.</p> : (
               <div className="overflow-x-auto rounded-xl border border-line">
                 <table className="w-full text-sm">
-                  <thead><tr className="bg-surface-2 text-[11.5px] uppercase tracking-wide text-muted"><th className="px-3 py-2 text-left">Module</th>{ACTIONS.map(a => <th key={a} className="px-3 py-2 text-center"><label className="inline-flex cursor-pointer flex-col items-center gap-1">{a}<input type="checkbox" className="accent-[var(--brand)]" checked={ALL_MODULES.every(m => edit.perms[m.key]?.[a])} onChange={e => setCol(a, e.target.checked)} /></label></th>)}<th className="px-3 py-2">All</th></tr></thead>
+                  <thead><tr className="text-[12.5px] text-muted"><th className="px-3 py-2.5 text-left font-normal">Module</th>{ACTIONS.map(a => <th key={a} className="px-3 py-2.5 text-center font-normal capitalize"><label className="inline-flex cursor-pointer flex-col items-center gap-1">{a}<input type="checkbox" className="accent-[var(--brand)]" checked={ALL_MODULES.every(m => edit.perms[m.key]?.[a])} onChange={e => setCol(a, e.target.checked)} /></label></th>)}<th className="px-3 py-2.5 font-normal">All</th></tr></thead>
                   <tbody>
                     {ALL_MODULES.map(m => (
                       <tr key={m.key} className="border-t border-line hover:bg-surface-2">
@@ -128,7 +126,7 @@ export function ReportRoles({ initialRole }: { initialRole?: number }) {
   };
   return (
     <Guard module="user">
-      <PageHeader title="Report Access" subtitle="Choose which reports each role can open (the role also needs the Report module)." actions={<Button variant="primary" icon={<Save className="size-4" />} onClick={save} disabled={!role}>Save</Button>} />
+      <PageHeader title="Report access" subtitle="Choose which reports each role can open (the role also needs the report module)." actions={<Button variant="primary" icon={<Save className="size-4" />} onClick={save} disabled={!role}>Save</Button>} />
       <Card>
         <div className="flex flex-wrap items-center gap-3">
           <div className="w-60"><Select value={roleId ?? ''} onChange={e => setRoleId(Number(e.target.value))}>{roles.data?.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}</Select></div>
@@ -163,7 +161,7 @@ export function ActivityLog() {
   const { data, loading } = useRpc('admin.activityLog', [{ q, user_id: user ?? undefined, from, to, page }], [q, user, from, to, page]);
   return (
     <Guard module="user">
-      <PageHeader title="Activity Log" subtitle="Every create, edit, delete and sign-in across the system." />
+      <PageHeader title="Activity log" subtitle="Every create, edit, delete and sign-in across the system." />
       <Card pad={false}>
         <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
           <SearchInput value={q} onChange={setQ} placeholder="Search activity…" className="w-72" />

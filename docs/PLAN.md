@@ -50,3 +50,5 @@ Goal: every function of the original ERP, with a cleaner, faster, easier UI.
 All modules above are implemented. Verified with an end-to-end script (purchase → sale with split payment, cheque and serials → return → receipt/payment/expense/transfer → branch transfer, disposal, delivery). The trial balance and balance sheet balance, and all 93 reports run without errors. `next build` passes.
 
 Open items: Bangla UI translation, auto-generated barcodes, importing data from the old system.
+
+Interface: redesigned on 2026-10-30 to the "framed sheet" style (white work sheet inside a quiet frame, IBM Plex type, colour only for figures, status and the main action). README section 6.9 describes the patterns.

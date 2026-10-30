@@ -177,7 +177,8 @@ export function listVouchers(u: SessionUser, kind: VoucherKind, args: { q?: stri
     expense: `(SELECT GROUP_CONCAT(l.name, ', ') FROM journal_lines x JOIN ledgers l ON l.id = x.ledger_id WHERE x.journal_id = j.id AND x.debit > 0)`,
     donation: `(SELECT GROUP_CONCAT(COALESCE(x.memo, l.name), ', ') FROM journal_lines x JOIN ledgers l ON l.id = x.ledger_id WHERE x.journal_id = j.id AND x.debit > 0)`,
   };
-  const srcExpr = `(SELECT GROUP_CONCAT(l.name, ', ') FROM journal_lines x JOIN ledgers l ON l.id = x.ledger_id WHERE x.journal_id = j.id AND x.credit > 0 AND l.kind IN ('cash','bank','mobile','loan'))`;
+  // The money side: credited when paying out, debited when receiving.
+  const srcExpr = `(SELECT GROUP_CONCAT(l.name, ', ') FROM journal_lines x JOIN ledgers l ON l.id = x.ledger_id WHERE x.journal_id = j.id AND x.${kind === 'receipt' ? 'debit' : 'credit'} > 0 AND l.kind IN ('cash','bank','mobile','loan'))`;
   const amountExpr: Record<VoucherKind, string> = {
     payment: `(SELECT COALESCE(SUM(x.credit),0) FROM journal_lines x JOIN ledgers l ON l.id = x.ledger_id WHERE x.journal_id = j.id AND l.kind IN ('cash','bank','mobile','loan'))`,
     receipt: `(SELECT COALESCE(SUM(x.debit),0) FROM journal_lines x JOIN ledgers l ON l.id = x.ledger_id WHERE x.journal_id = j.id AND l.kind IN ('cash','bank','mobile','loan'))`,

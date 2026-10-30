@@ -2,13 +2,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Bell, CornerDownLeft, FileText, LayoutGrid, LogOut, Menu, MessageCircle, Moon, Package, Search, Send, Sun, User, Users, Hash, Receipt } from 'lucide-react';
+import { Bell, CornerDownLeft, FileText, Hash, LogOut, Menu, MessageCircle, Moon, Package, Plus, Receipt, Search, Send, Sun, User, Users } from 'lucide-react';
 import { NAV, QUICK_ACTIONS } from '@/lib/nav';
 import { rpc, useRpc } from '@/lib/client/rpc';
 import { date, dateTime, KIND_LABEL, money, relative } from '@/lib/format';
 import { cx, Kbd } from '@/components/ui/primitives';
 import { Drawer, Modal } from '@/components/ui/overlay';
 import { NavIcon } from './icons';
+import { Mark } from './brand';
 import { useSession } from './session';
 
 export function useTheme() {
@@ -28,10 +29,12 @@ function Popover({ open, onClose, children, className }: { open: boolean; onClos
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div className={cx('absolute right-0 top-full z-50 mt-2 rounded-xl border border-line bg-surface shadow-pop anim-pop', className)}>{children}</div>
+      <div className={cx('absolute right-0 top-full z-50 mt-1.5 rounded-lg border border-line bg-surface shadow-pop anim-pop', className)}>{children}</div>
     </>
   );
 }
+
+const iconBtn = 'relative inline-flex size-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-3 hover:text-ink';
 
 export function Topbar({ onMenu }: { onMenu: () => void }) {
   const { me, can } = useSession();
@@ -43,6 +46,7 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
   const [chat, setChat] = useState(false);
   const [menu, setMenu] = useState(false);
   const [unread, setUnread] = useState(0);
+  const [attention, setAttention] = useState(0);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -53,50 +57,67 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
     return () => window.removeEventListener('keydown', h);
   }, [router, can]);
   useEffect(() => {
-    const poll = () => rpc('admin.unreadCount').then(setUnread).catch(() => {});
+    const poll = () => {
+      rpc('admin.unreadCount').then(setUnread).catch(() => {});
+      rpc('admin.attentionCount').then(c => setAttention(c.cheques + c.followups + c.lowStock + c.leaves)).catch(() => {});
+    };
     poll();
-    const t = setInterval(poll, 20000);
+    const t = setInterval(poll, 30000);
     return () => clearInterval(t);
   }, []);
 
   const logout = async () => { await fetch('/api/auth', { method: 'DELETE' }); window.location.href = '/login'; };
+  const initials = (me.name ?? '?').split(/\s+/).map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
 
   return (
-    <header className="no-print sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-surface/85 px-3 backdrop-blur sm:px-5">
-      <button onClick={onMenu} className="rounded-lg p-2 text-muted hover:bg-surface-3 lg:hidden" aria-label="Open menu"><Menu className="size-5" /></button>
-      <button onClick={() => setPalette(true)} className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-line bg-surface-2 px-3 text-sm text-muted transition hover:border-line-strong sm:max-w-md">
-        <Search className="size-4 shrink-0" /><span className="flex-1 truncate text-left"><span className="sm:hidden">Search…</span><span className="hidden sm:inline">Search invoices, products, serials, customers…</span></span><span className="hidden sm:flex gap-1"><Kbd>Ctrl</Kbd><Kbd>K</Kbd></span>
+    <header className="no-print grid h-12 shrink-0 grid-cols-[auto_1fr_auto] items-center gap-3 px-3 lg:grid-cols-[1fr_minmax(0,548px)_1fr] lg:pl-0 lg:pr-3">
+      <div className="flex items-center gap-2">
+        <button onClick={onMenu} className={cx(iconBtn, 'lg:hidden')} aria-label="Open menu"><Menu className="size-5" /></button>
+        <Link href="/" className="lg:hidden" aria-label="Auralit overview"><Mark /></Link>
+      </div>
+      <button onClick={() => setPalette(true)} className="flex h-8 min-w-0 items-center gap-2 rounded-md border border-line bg-surface px-3 text-[13.5px] text-faint transition-colors hover:border-line-strong">
+        <Search className="size-4 shrink-0" />
+        <span className="flex-1 truncate text-left"><span className="sm:hidden">Search</span><span className="hidden sm:inline">Search invoices, products, serial numbers, customers</span></span>
+        <span className="hidden gap-1 sm:flex"><Kbd>Ctrl</Kbd><Kbd>K</Kbd></span>
       </button>
-      <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
+      <div className="flex items-center justify-end gap-0.5">
         <div className="relative">
-          <button onClick={() => setQuick(o => !o)} className="flex h-9 items-center gap-1.5 rounded-lg bg-brand px-3 text-sm font-medium text-brand-ink hover:bg-brand-2" aria-label="Quick actions">
-            <LayoutGrid className="size-4" /><span className="hidden sm:inline">Quick</span>
+          <button onClick={() => setQuick(o => !o)} aria-haspopup="menu" aria-expanded={quick}
+            className="mr-1 inline-flex h-8 items-center gap-1.5 rounded-md border border-line-strong bg-surface px-2.5 text-[13.5px] font-medium text-ink hover:bg-surface-2">
+            <Plus className="size-4" /><span className="hidden sm:inline">New</span>
           </button>
-          <Popover open={quick} onClose={() => setQuick(false)} className="w-[340px] p-2">
-            <div className="grid grid-cols-3 gap-1">
+          <Popover open={quick} onClose={() => setQuick(false)} className="w-[320px] p-1.5">
+            <div className="grid grid-cols-2 gap-px">
               {QUICK_ACTIONS.filter(a => can(a.module, 'read')).map(a => (
-                <Link key={a.href} href={a.href} onClick={() => setQuick(false)} className="flex flex-col items-center gap-1.5 rounded-lg px-2 py-3 text-center text-xs font-medium text-ink-2 hover:bg-surface-3">
-                  <span className="rounded-lg bg-brand-soft p-2 text-brand"><NavIcon name={a.icon} className="size-4" /></span>{a.label}
+                <Link key={a.href} href={a.href} onClick={() => setQuick(false)} className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13.5px] text-ink hover:bg-surface-2">
+                  <NavIcon name={a.icon} className="size-4 text-muted" />{a.label}
                 </Link>
               ))}
             </div>
-            <p className="mt-1 border-t border-line px-2 pt-2 text-[11px] text-muted">Tip: press <Kbd>F2</Kbd> anywhere to start a new sale.</p>
+            <p className="mt-1 border-t border-line px-2.5 pb-1 pt-2 text-[12px] text-muted">Press <Kbd>F2</Kbd> anywhere to start a new sale.</p>
           </Popover>
         </div>
-        <button onClick={() => setNotif(true)} className="rounded-lg p-2 text-muted hover:bg-surface-3 hover:text-ink" aria-label="Notifications"><Bell className="size-5" /></button>
-        <button onClick={() => setChat(true)} className="relative rounded-lg p-2 text-muted hover:bg-surface-3 hover:text-ink" aria-label="Team chat">
-          <MessageCircle className="size-5" />{unread > 0 && <span className="absolute right-1 top-1 flex size-4 items-center justify-center rounded-full bg-bad text-[10px] font-bold text-white">{unread}</span>}
+        <button onClick={() => setNotif(true)} className={iconBtn} aria-label={attention ? `Notifications, ${attention} need attention` : 'Notifications'}>
+          <Bell className="size-[18px]" />{attention > 0 && <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-bad px-1 text-[11px] font-semibold leading-none text-white">{attention > 99 ? '99+' : attention}</span>}
         </button>
-        <button onClick={toggle} className="hidden rounded-lg p-2 sm:block text-muted hover:bg-surface-3 hover:text-ink" aria-label="Toggle theme">{dark ? <Sun className="size-5" /> : <Moon className="size-5" />}</button>
-        <div className="relative">
-          <button onClick={() => setMenu(o => !o)} className="ml-1 flex items-center gap-2 rounded-lg p-1 pr-2 hover:bg-surface-3">
-            {me.image ? <img src={me.image} alt="" className="size-8 rounded-full object-cover" /> : <span className="flex size-8 items-center justify-center rounded-full bg-brand-soft text-sm font-semibold text-brand">{me.name?.slice(0, 1)}</span>}
-            <span className="hidden text-left md:block"><span className="block text-[13px] font-medium leading-tight">{me.name}</span><span className="block text-[11px] leading-tight text-muted">{me.role}</span></span>
+        <button onClick={() => setChat(true)} className={iconBtn} aria-label={unread ? `Team chat, ${unread} unread` : 'Team chat'}>
+          <MessageCircle className="size-[18px]" />{unread > 0 && <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-bad px-1 text-[11px] font-semibold leading-none text-white">{unread}</span>}
+        </button>
+        <div className="relative ml-1">
+          <button onClick={() => setMenu(o => !o)} aria-haspopup="menu" aria-expanded={menu} aria-label="Account" className="flex items-center rounded-full p-0.5 hover:bg-surface-3">
+            {me.image ? <img src={me.image} alt="" className="size-7 rounded-full object-cover" /> : <span className="flex size-7 items-center justify-center rounded-full bg-surface-3 text-[12px] font-semibold text-ink-2">{initials}</span>}
           </button>
-          <Popover open={menu} onClose={() => setMenu(false)} className="w-56 p-1.5">
-            <div className="border-b border-line px-2.5 py-2 text-xs text-muted">{me.email}<br />{me.branch}</div>
-            <Link href="/profile" onClick={() => setMenu(false)} className="mt-1 flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-surface-3"><User className="size-4" /> Profile & password</Link>
-            <button onClick={logout} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-bad hover:bg-bad-soft"><LogOut className="size-4" /> Sign out</button>
+          <Popover open={menu} onClose={() => setMenu(false)} className="w-60 p-1">
+            <div className="px-2.5 pb-2 pt-1.5">
+              <p className="truncate text-[14px] font-medium text-ink">{me.name}</p>
+              <p className="truncate text-[12.5px] text-muted">{me.email}</p>
+              <p className="truncate text-[12.5px] text-muted">{me.role} · {me.branch}</p>
+            </div>
+            <div className="border-t border-line pt-1">
+              <Link href="/profile" onClick={() => setMenu(false)} className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[14px] hover:bg-surface-2"><User className="size-4 text-muted" /> Profile and password</Link>
+              <button onClick={toggle} className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-[14px] hover:bg-surface-2">{dark ? <Sun className="size-4 text-muted" /> : <Moon className="size-4 text-muted" />} {dark ? 'Light theme' : 'Dark theme'}</button>
+              <button onClick={logout} className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-[14px] text-bad hover:bg-bad-soft"><LogOut className="size-4" /> Sign out</button>
+            </div>
           </Popover>
         </div>
       </div>
@@ -107,7 +128,7 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
   );
 }
 
-type Hit = { key: string; label: string; hint?: string; href: string; icon: React.ReactNode; section: string };
+type Hit = { key: string; label: string; hint?: string; href: string; icon: React.ReactNode; section: string; mono?: boolean };
 
 function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { can } = useSession();
@@ -129,10 +150,10 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
       .filter(p => !term || term.split(/\s+/).every(t => p.kw.includes(t))).slice(0, term ? 8 : 6);
     const out: Hit[] = [...pages];
     if (res) {
-      out.push(...res.docs.map(d => ({ key: `d${d.id}`, label: d.no, hint: `${KIND_LABEL[d.kind] ?? d.kind} · ${date(d.date)} · ${d.party ?? ''} · ${money(d.total)}`, href: `/doc/${d.kind}/${d.id}`, icon: <FileText className="size-4" />, section: 'Documents' })));
-      out.push(...res.vouchers.map(v => ({ key: `v${v.id}`, label: v.no, hint: `${KIND_LABEL[v.type] ?? v.type} · ${date(v.date)} · ${money(v.total)}`, href: `/vouchers/${v.type}/${v.id}`, icon: <Receipt className="size-4" />, section: 'Vouchers' })));
-      out.push(...res.products.map(p => ({ key: `p${p.id}`, label: p.name, hint: `${p.code} · ${money(p.price)} · stock ${p.stock}`, href: `/data/product?view=${p.id}`, icon: <Package className="size-4" />, section: 'Products' })));
-      out.push(...res.serials.map(s => ({ key: `s${s.id}`, label: s.serial, hint: `${s.product} · ${s.status}${s.sale_no ? ` · sold on ${s.sale_no}` : ''}`, href: s.sale_doc_id ? `/doc/sale/${s.sale_doc_id}` : s.purchase_doc_id ? `/doc/purchase/${s.purchase_doc_id}` : `/data/product?view=${s.product_id}`, icon: <Hash className="size-4" />, section: 'Serials' })));
+      out.push(...res.docs.map(d => ({ key: `d${d.id}`, label: d.no, mono: true, hint: `${KIND_LABEL[d.kind] ?? d.kind} · ${date(d.date)} · ${d.party ?? ''} · ${money(d.total)}`, href: `/doc/${d.kind}/${d.id}`, icon: <FileText className="size-4" />, section: 'Documents' })));
+      out.push(...res.vouchers.map(v => ({ key: `v${v.id}`, label: v.no, mono: true, hint: `${KIND_LABEL[v.type] ?? v.type} · ${date(v.date)} · ${money(v.total)}`, href: `/vouchers/${v.type}/${v.id}`, icon: <Receipt className="size-4" />, section: 'Vouchers' })));
+      out.push(...res.products.map(p => ({ key: `p${p.id}`, label: p.name, hint: `${p.code} · ${money(p.price)} · ${p.stock} in stock`, href: `/data/product?view=${p.id}`, icon: <Package className="size-4" />, section: 'Products' })));
+      out.push(...res.serials.map(s => ({ key: `s${s.id}`, label: s.serial, mono: true, hint: `${s.product} · ${s.status}${s.sale_no ? ` · sold on ${s.sale_no}` : ''}`, href: s.sale_doc_id ? `/doc/sale/${s.sale_doc_id}` : s.purchase_doc_id ? `/doc/purchase/${s.purchase_doc_id}` : `/data/product?view=${s.product_id}`, icon: <Hash className="size-4" />, section: 'Serial numbers' })));
       out.push(...res.parties.map(p => ({ key: `${p.type}${p.id}`, label: p.name, hint: `${p.code} · ${p.mobile ?? ''}`, href: `/data/${p.type}?view=${p.id}`, icon: <Users className="size-4" />, section: p.type === 'customer' ? 'Customers' : 'Suppliers' })));
     }
     return out;
@@ -150,7 +171,7 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
       <div className="-mx-5 -my-4">
         <div className="flex items-center gap-3 border-b border-line px-4">
           <Search className="size-5 text-muted" />
-          <input ref={inputRef} value={q} onChange={e => { setQ(e.target.value); setActive(0); }} onKeyDown={onKey} placeholder="Invoice no, product code, serial / IMEI, customer, page…" className="h-14 w-full bg-transparent text-[15px] outline-none" />
+          <input ref={inputRef} value={q} onChange={e => { setQ(e.target.value); setActive(0); }} onKeyDown={onKey} placeholder="Invoice number, product code, serial or IMEI, customer, page" aria-label="Search" className="h-14 w-full bg-transparent text-[15px] outline-none" />
           <Kbd>Esc</Kbd>
         </div>
         <div className="thin-scroll max-h-[60vh] overflow-y-auto p-2">
@@ -158,16 +179,16 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
             const head = h.section !== last ? (last = h.section) : null;
             return (
               <div key={h.key}>
-                {head && <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wider text-muted">{head}</p>}
-                <button onMouseEnter={() => setActive(i)} onClick={() => go(h)} className={cx('flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left', i === active ? 'bg-brand-soft' : '')}>
+                {head && <p className="px-3 pb-1 pt-3 text-[12px] text-muted">{head}</p>}
+                <button onMouseEnter={() => setActive(i)} onClick={() => go(h)} className={cx('flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left', i === active ? 'bg-surface-2' : '')}>
                   <span className="text-muted">{h.icon}</span>
-                  <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{h.label}</span>{h.hint && <span className="block truncate text-xs text-muted">{h.hint}</span>}</span>
+                  <span className="min-w-0 flex-1"><span className={cx('block truncate text-[14px] text-ink', h.mono && 'id')}>{h.label}</span>{h.hint && <span className="block truncate text-[12.5px] text-muted">{h.hint}</span>}</span>
                   {i === active && <CornerDownLeft className="size-4 text-muted" />}
                 </button>
               </div>
             );
           })}
-          {q.trim().length >= 2 && res && hits.length === 0 && <p className="py-10 text-center text-sm text-muted">No results for “{q}”</p>}
+          {q.trim().length >= 2 && res && hits.length === 0 && <p className="py-10 text-center text-[14px] text-muted">No results for “{q}”</p>}
         </div>
       </div>
     </Modal>
@@ -178,24 +199,26 @@ const rpcSearch = (q: string) => rpc('admin.globalSearch', q);
 function Notifications({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data } = useRpc(open ? 'admin.notifications' : null, [], [open]);
   const Section = ({ title, children, count }: { title: string; children: React.ReactNode; count: number }) => count ? (
-    <div className="mb-5"><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">{title} <span className="ml-1 rounded bg-surface-3 px-1">{count}</span></p><div className="space-y-1.5">{children}</div></div>
+    <div className="mb-6"><p className="mb-2 text-[13px] font-medium text-ink">{title} <span className="ml-1 text-muted">{count}</span></p><div className="divide-y divide-rule rounded-lg border border-line">{children}</div></div>
   ) : null;
   const Row = ({ href, title, sub }: { href: string; title: React.ReactNode; sub?: React.ReactNode }) => (
-    <Link href={href} onClick={onClose} className="block rounded-lg border border-line px-3 py-2 text-sm hover:border-brand/40 hover:bg-surface-2"><span className="font-medium">{title}</span>{sub && <span className="block text-xs text-muted">{sub}</span>}</Link>
+    <Link href={href} onClick={onClose} className="block px-3 py-2.5 text-[14px] hover:bg-surface-2"><span className="text-ink">{title}</span>{sub && <span className="block text-[12.5px] text-muted">{sub}</span>}</Link>
   );
+  const empty = data && !data.cheques.length && !data.followups.length && !data.lowStock.length && !data.leaves.length && !data.todos.length && !data.events.length;
   return (
-    <Drawer open={open} onClose={onClose} title="Notifications" width="max-w-md">
-      {!data ? <p className="text-sm text-muted">Loading…</p> : (
+    <Drawer open={open} onClose={onClose} title="Notifications" subtitle="What needs someone to act" width="max-w-md">
+      {!data ? <p className="text-[14px] text-muted">Loading…</p> : (
         <>
-          <Section title="Cheques due" count={data.cheques.length}>{data.cheques.map(c => <Row key={c.id} href="/accounts/cheques" title={`${c.direction === 'in' ? 'Receive' : 'Pay'} cheque ${c.cheque_no} · ${money(c.amount)}`} sub={`${date(c.cheque_date)} · ${c.party ?? ''}`} />)}</Section>
-          <Section title="Follow-ups due" count={data.followups.length}>{data.followups.map(f => <Row key={f.id} href={`/enquiry?open=${f.id}`} title={`${f.customer_name} — ${f.product_name ?? ''}`} sub={`Follow up ${date(f.next_followup)} · ${f.no}`} />)}</Section>
-          <Section title="Low stock" count={data.lowStock.length}>{data.lowStock.map(p => <Row key={p.id} href={`/data/product?view=${p.id}`} title={p.name} sub={`${p.code} · stock ${p.stock} / min ${p.min_stock}`} />)}</Section>
-          <Section title="Pending leave" count={data.leaves.length}>{data.leaves.map(l => <Row key={l.id} href="/data/leave_app" title={l.name} sub={`${date(l.from_date)} → ${date(l.to_date)}`} />)}</Section>
-          <Section title="Your todos" count={data.todos.length}>{data.todos.map(t => <Row key={t.id} href="/personal/todo" title={t.title} sub={`Due ${date(t.due)}`} />)}</Section>
+          {empty && <p className="mb-6 rounded-lg border border-dashed border-line-strong px-3 py-3 text-[14px] text-muted">Nothing needs attention right now.</p>}
+          <Section title="Cheques due" count={data.cheques.length}>{data.cheques.map(c => <Row key={c.id} href="/accounts/cheques" title={`${c.direction === 'in' ? 'Deposit' : 'Pay'} cheque ${c.cheque_no} · ${money(c.amount)}`} sub={`${date(c.cheque_date)} · ${c.party ?? ''}`} />)}</Section>
+          <Section title="Follow-ups due" count={data.followups.length}>{data.followups.map(f => <Row key={f.id} href={`/enquiry?open=${f.id}`} title={`${f.customer_name} — ${f.product_name ?? ''}`} sub={`Due ${date(f.next_followup)} · ${f.no}`} />)}</Section>
+          <Section title="Below minimum stock" count={data.lowStock.length}>{data.lowStock.map(p => <Row key={p.id} href={`/data/product?view=${p.id}`} title={p.name} sub={`${p.code} · ${p.stock} in stock, minimum ${p.min_stock}`} />)}</Section>
+          <Section title="Leave waiting for approval" count={data.leaves.length}>{data.leaves.map(l => <Row key={l.id} href="/data/leave_app" title={l.name} sub={`${date(l.from_date)} to ${date(l.to_date)}`} />)}</Section>
+          <Section title="Your to-dos" count={data.todos.length}>{data.todos.map(t => <Row key={t.id} href="/personal/todo" title={t.title} sub={`Due ${date(t.due)}`} />)}</Section>
           <Section title="Upcoming events" count={data.events.length}>{data.events.map(e => <Row key={e.id} href="/personal/events" title={e.title} sub={`${date(e.date)} ${e.start_time ?? ''}`} />)}</Section>
-          <div><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Recent activity</p>
-            <ol className="relative space-y-3 border-l border-line pl-4">
-              {data.activity.map(a => <li key={a.id} className="text-sm"><span className="absolute -left-[5px] mt-1.5 size-2.5 rounded-full border-2 border-surface bg-brand" /><p className="text-ink">{a.summary}</p><p className="text-xs text-muted">{a.user_name ?? 'System'} · {relative(a.at)}</p></li>)}
+          <div><p className="mb-2 text-[13px] font-medium text-ink">Recent activity</p>
+            <ol className="space-y-3">
+              {data.activity.map(a => <li key={a.id} className="text-[14px]"><p className="text-ink">{a.summary}</p><p className="text-[12.5px] text-muted">{a.user_name ?? 'System'} · {relative(a.at)}</p></li>)}
             </ol>
           </div>
         </>
@@ -216,33 +239,33 @@ function Chat({ open, onClose }: { open: boolean; onClose: () => void }) {
   const send = async () => { if (!text.trim() || !peer) return; await rpc('admin.sendMessage', peer, text); setText(''); msgs.reload(); };
   const peerUser = users.data?.find(u => u.id === peer);
   return (
-    <Drawer open={open} onClose={onClose} title={peerUser ? peerUser.name : 'Team chat'} subtitle={peerUser ? <button className="text-brand" onClick={() => setPeer(null)}>← All people</button> : 'Message your colleagues'} width="max-w-md">
+    <Drawer open={open} onClose={onClose} title={peerUser ? peerUser.name : 'Team chat'} subtitle={peerUser ? <button className="text-brand hover:underline" onClick={() => setPeer(null)}>All people</button> : 'Message your colleagues'} width="max-w-md">
       {!peer ? (
-        <div className="space-y-1">
+        <div className="divide-y divide-rule">
           {users.data?.map(u => (
-            <button key={u.id} onClick={() => setPeer(u.id)} className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-surface-2">
-              <span className="flex size-9 items-center justify-center rounded-full bg-brand-soft font-semibold text-brand">{u.name.slice(0, 1)}</span>
-              <span className="flex-1"><span className="block text-sm font-medium">{u.name}</span><span className="block text-xs text-muted">{u.last_active ? `Active ${relative(u.last_active)}` : 'Never signed in'}</span></span>
-              {u.unread > 0 && <span className="rounded-full bg-bad px-1.5 text-[11px] font-bold text-white">{u.unread}</span>}
+            <button key={u.id} onClick={() => setPeer(u.id)} className="flex w-full items-center gap-3 px-1 py-2.5 text-left hover:bg-surface-2">
+              <span className="flex size-8 items-center justify-center rounded-full bg-surface-3 text-[12px] font-semibold text-ink-2">{u.name.split(/\s+/).map((w: string) => w[0]).slice(0, 2).join('')}</span>
+              <span className="flex-1"><span className="block text-[14px] text-ink">{u.name}</span><span className="block text-[12.5px] text-muted">{u.last_active ? `Active ${relative(u.last_active)}` : 'Has not signed in yet'}</span></span>
+              {u.unread > 0 && <span className="rounded-full bg-bad px-1.5 text-[11px] font-semibold text-white">{u.unread}</span>}
             </button>
           ))}
-          {users.data?.length === 0 && <p className="py-10 text-center text-sm text-muted">No other users yet. Add users under Users & Roles.</p>}
+          {users.data?.length === 0 && <p className="py-10 text-center text-[14px] text-muted">No other users yet. Add people under Users &amp; roles.</p>}
         </div>
       ) : (
         <div className="flex h-full flex-col">
           <div className="flex-1 space-y-2 pb-3">
             {msgs.data?.map(m => (
               <div key={m.id} className={cx('flex', m.from_user === me.id ? 'justify-end' : 'justify-start')}>
-                <div className={cx('max-w-[80%] rounded-2xl px-3 py-2 text-sm', m.from_user === me.id ? 'bg-brand text-brand-ink' : 'bg-surface-3')}>
-                  <p className="whitespace-pre-wrap">{m.body}</p><p className="mt-0.5 text-[10px] opacity-70">{dateTime(m.at)}</p>
+                <div className={cx('max-w-[80%] rounded-lg px-3 py-2 text-[14px]', m.from_user === me.id ? 'bg-primary text-on-primary' : 'bg-surface-3 text-ink')}>
+                  <p className="whitespace-pre-wrap">{m.body}</p><p className="mt-0.5 text-[11px] opacity-70">{dateTime(m.at)}</p>
                 </div>
               </div>
             ))}
             <div ref={end} />
           </div>
           <div className="sticky bottom-0 flex gap-2 border-t border-line bg-surface pt-3">
-            <input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void send(); }} placeholder="Type a message" className="h-10 flex-1 rounded-lg border border-line-strong bg-surface px-3 text-sm outline-none focus:border-brand" />
-            <button onClick={send} className="rounded-lg bg-brand px-3 text-brand-ink" aria-label="Send"><Send className="size-4" /></button>
+            <input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void send(); }} placeholder="Write a message" aria-label="Message" className="h-9 flex-1 rounded-md border border-line-strong bg-surface px-3 text-[14px] outline-none focus:border-brand" />
+            <button onClick={send} className="inline-flex size-9 items-center justify-center rounded-md bg-primary text-on-primary" aria-label="Send"><Send className="size-4" /></button>
           </div>
         </div>
       )}

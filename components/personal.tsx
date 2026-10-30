@@ -20,14 +20,14 @@ export function Notes() {
   const save = async () => { await rpc('admin.saveNote', edit!, edit!.id); setEdit(null); reload(); toast('Note saved'); };
   return (
     <Guard module="personal">
-      <PageHeader title="Personal Notes" actions={<Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setEdit({ title: '', body: '', color: COLORS[0] })}>New note</Button>} />
+      <PageHeader title="Personal notes" actions={<Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setEdit({ title: '', body: '', color: COLORS[0] })}>New note</Button>} />
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Tabs value={filter} onChange={setFilter} tabs={[{ value: 'all', label: 'All' }, { value: 'fav', label: 'Favourites' }]} />
-        {labels.map(l => <button key={l} onClick={() => setLabel(label === l ? '' : l)} className={cx('rounded-full border px-2.5 py-1 text-xs', label === l ? 'border-brand bg-brand-soft text-brand' : 'border-line')}>{l}</button>)}
+        {labels.map(l => <button key={l} onClick={() => setLabel(label === l ? '' : l)} className={cx('rounded-full border px-2.5 py-1 text-[13px]', label === l ? 'border-brand bg-brand-soft text-brand' : 'border-line')}>{l}</button>)}
       </div>
       <div className="columns-1 gap-3 sm:columns-2 xl:columns-4">
         {list.map((n: any) => (
-          <div key={n.id} onClick={() => setEdit(n)} className="mb-3 cursor-pointer break-inside-avoid rounded-xl border border-black/5 p-4 text-neutral-900 shadow-card transition hover:shadow-pop" style={{ background: n.color || COLORS[0] }}>
+          <div key={n.id} onClick={() => setEdit(n)} className="mb-3 cursor-pointer break-inside-avoid rounded-lg border border-black/5 p-4 text-neutral-900 shadow-card transition hover:shadow-pop" style={{ background: n.color || COLORS[0] }}>
             <div className="flex items-start justify-between gap-2"><p className="font-semibold">{n.title || 'Untitled'}</p>
               <button onClick={async e => { e.stopPropagation(); await rpc('admin.saveNote', { ...n, favorite: !n.favorite }, n.id); reload(); }} aria-label="Favourite"><Star className="size-4" fill={n.favorite ? 'currentColor' : 'none'} /></button></div>
             <p className="mt-1 whitespace-pre-wrap text-sm">{n.body}</p>
@@ -66,7 +66,7 @@ export function Todos() {
   );
   return (
     <Guard module="personal">
-      <PageHeader title="Todo List" subtitle={`${open.length} open · ${done.length} done`} />
+      <PageHeader title="Todo list" subtitle={`${open.length} open · ${done.length} done`} />
       <Card className="max-w-3xl">
         <form className="flex flex-wrap gap-2" onSubmit={e => { e.preventDefault(); void add(); }}>
           <Input autoFocus className="min-w-[220px] flex-1" value={title} onChange={e => setTitle(e.target.value)} placeholder="What needs doing?" />
@@ -104,13 +104,13 @@ export function Events() {
             <p className="font-semibold">{cursor.toLocaleString('en', { month: 'long', year: 'numeric' })}</p>
             <div className="flex gap-1"><Button size="sm" variant="ghost" onClick={() => { const d = new Date(); setCursor(new Date(d.getFullYear(), d.getMonth(), 1)); }}>Today</Button><IconButton label="Next month" onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}><ChevronRight className="size-4" /></IconButton></div>
           </div>
-          <div className="grid grid-cols-7 text-center text-[11px] font-semibold uppercase text-muted">{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => <div key={d} className="py-2">{d}</div>)}</div>
+          <div className="grid grid-cols-7 text-center text-[12.5px] text-muted">{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => <div key={d} className="py-2">{d}</div>)}</div>
           <div className="grid grid-cols-7 border-t border-line">
             {days.map(d => {
               const iso = isoOf(d), inMonth = d.getMonth() === cursor.getMonth();
               return (
                 <div key={iso} onDoubleClick={() => setEdit({ date: iso, title: '', color: '#c27a43' })} className={cx('min-h-24 border-b border-r border-line p-1.5', !inMonth && 'bg-surface-2/60')}>
-                  <p className={cx('mb-1 text-xs', iso === todayISO() ? 'inline-flex size-6 items-center justify-center rounded-full bg-brand font-bold text-brand-ink' : inMonth ? 'text-ink-2' : 'text-muted/60')}>{d.getDate()}</p>
+                  <p className={cx('mb-1 text-xs', iso === todayISO() ? 'inline-flex size-6 items-center justify-center rounded-full bg-primary font-semibold text-on-primary' : inMonth ? 'text-ink-2' : 'text-muted/60')}>{d.getDate()}</p>
                   {(byDay[iso] ?? []).map(e => <button key={e.id} onClick={() => setEdit(e)} className="mb-0.5 block w-full truncate rounded px-1 py-0.5 text-left text-[11px] text-white" style={{ background: e.color || '#c27a43' }}>{e.start_time && `${e.start_time} `}{e.title}</button>)}
                 </div>
               );

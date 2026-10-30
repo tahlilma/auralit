@@ -1,6 +1,14 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { connection, NextResponse, type NextRequest } from 'next/server';
 import { get } from '@/lib/server/db';
 import { createSession, destroySession, log, SESSION_COOKIE, userByToken, verifyPassword } from '@/lib/server/auth';
+import { DEFAULT_ADMIN, DEFAULT_PASSWORD } from '@/lib/server/seed';
+
+// First-run hint: true while the seeded administrator still has its default password.
+export async function GET() {
+  await connection();
+  const u = get(`SELECT password FROM users WHERE email = ?`, [DEFAULT_ADMIN]);
+  return NextResponse.json({ defaultLogin: !!u && verifyPassword(DEFAULT_PASSWORD, u.password), email: DEFAULT_ADMIN });
+}
 
 // Sign in
 export async function POST(req: NextRequest) {

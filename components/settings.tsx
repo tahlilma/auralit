@@ -11,6 +11,20 @@ import { ImageInput } from '@/components/forms';
 import { HistoryButton } from '@/components/history';
 import { Guard, useSession } from '@/components/shell/session';
 
+/** A settings row: what it is on the left, the controls on a quiet panel on the right. */
+function Section({ title, desc, children, aside }: { title: string; desc?: React.ReactNode; children: React.ReactNode; aside?: React.ReactNode }) {
+  return (
+    <section className="grid gap-x-10 gap-y-4 border-t border-line py-8 first:border-t-0 first:pt-0 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
+      <div>
+        <h2 className="text-[16px] font-medium text-ink">{title}</h2>
+        {desc && <div className="mt-1 text-[14px] text-muted">{desc}</div>}
+        {aside && <div className="mt-3">{aside}</div>}
+      </div>
+      <div className="min-w-0 rounded-2xl bg-surface-2 p-5">{children}</div>
+    </section>
+  );
+}
+
 export function CompanySetup() {
   const { toast } = useUI();
   const { reloadSettings } = useSession();
@@ -26,16 +40,16 @@ export function CompanySetup() {
   const save = async () => { try { await rpc('admin.saveCompany', v); toast('Company updated'); await reloadSettings(); } catch (e: any) { toast(e.message, 'error'); } };
   return (
     <Guard module="setting">
-      <PageHeader title="Company Setup" subtitle="Shown on invoices, vouchers, reports and the sidebar." actions={<><HistoryButton entities={['company']} /><Button variant="primary" icon={<Save className="size-4" />} onClick={save}>Save</Button></>} />
-      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-        <Card>
+      <PageHeader title="Company setup" subtitle="Shown on invoices, vouchers, reports and the sidebar." actions={<><HistoryButton entities={['company']} /><Button variant="primary" icon={<Save className="size-4" />} onClick={save}>Save</Button></>} />
+      <div className="max-w-[1152px]">
+        <Section title="Business details" desc="Printed on invoices, vouchers, challans and reports, in English and Bangla.">
           <div className="grid gap-4 sm:grid-cols-2">
             {f('name', 'Name (English)')}{f('bname', 'নাম (বাংলা)')}{f('slogan', 'Slogan (English)')}{f('bslogan', 'স্লোগান (বাংলা)')}
             {f('mobile', 'Mobile')}{f('phone', 'Phone')}{f('fax', 'Fax')}{f('web', 'Web', { ph: 'https://' })}{f('email', 'Email')}{f('tin', 'TIN')}{f('vat', 'VAT / BIN')}
             {f('address', 'Address (English)', { area: true })}{f('baddress', 'ঠিকানা (বাংলা)', { area: true })}{f('saddress', 'Address (single line, for POS receipts)', { area: true })}
           </div>
-        </Card>
-        <Card title="Logo"><ImageInput value={v.logo} onChange={logo => setV({ ...v, logo })} /></Card>
+        </Section>
+        <Section title="Logo" desc="Printed at the top of invoices and shown beside the business name in the sidebar."><ImageInput value={v.logo} onChange={logo => setV({ ...v, logo })} /></Section>
       </div>
     </Guard>
   );
@@ -58,17 +72,17 @@ export function LocalSettings() {
   const sample = (() => { const d = new Date(); const ddmmyy = `${String(d.getDate()).padStart(2, '0')}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getFullYear()).slice(2)}`; const co = v.company_short || 'BGI'; return { 'PFX-CO-DDMMYY-NNN': `SEL-${co}-${ddmmyy}-001`, 'PFX-B0-DDMMYY-NNN': `SEL-B1-${ddmmyy}-001`, 'PFX-DDMMYY-NNN-CO': `SEL-${ddmmyy}-001-${co}`, 'PFX-CO-YY-NNNNNN': `SEL-${co}-${String(d.getFullYear()).slice(2)}-000001` }; })();
   return (
     <Guard module="setting">
-      <PageHeader title="Local Settings" actions={<><HistoryButton entities={['setting']} /><Button variant="primary" icon={<Save className="size-4" />} onClick={save}>Save</Button></>} />
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Card title="Region & format">
+      <PageHeader title="Local settings" actions={<><HistoryButton entities={['setting']} /><Button variant="primary" icon={<Save className="size-4" />} onClick={save}>Save</Button></>} />
+      <div className="max-w-[1152px]">
+        <Section title="Region and format" desc="Language, time zone and how dates and the receipt header appear.">
           <div className="grid gap-4 sm:grid-cols-2">
             {sel('language', 'Language', [{ value: 'en', label: 'English' }, { value: 'bn', label: 'বাংলা (saved for future use)' }])}
             <Field label="Time zone"><Combobox value={v.timezone} onChange={x => set('timezone', x ?? 'Asia/Dhaka')} options={zones} clearable={false} /></Field>
             {sel('date_format', 'Date format', ['dd MMM yyyy', 'dd-mm-yyyy', 'dd/mm/yyyy', 'yyyy-mm-dd', 'mm/dd/yyyy'].map(x => ({ value: x, label: x })))}
             {inp('pos_name', 'POS name (receipt header)')}
           </div>
-        </Card>
-        <Card title="Numbering & codes">
+        </Section>
+        <Section title="Numbering and codes" desc="How invoice numbers and customer, supplier and product codes are built.">
           <div className="grid gap-4 sm:grid-cols-2">
             {inp('code_prefix', 'Code prefix', 'Used in customer/supplier/product codes, e.g. ABA/CU/001')}
             {inp('company_short', 'Company short code', 'Used in invoice numbers')}
@@ -76,8 +90,8 @@ export function LocalSettings() {
             {sel('barcode_type', 'Generated barcode type', [{ value: 'numeric', label: 'Numeric' }, { value: 'alpha', label: 'Alphabet' }, { value: 'both', label: 'Both' }])}
             {sel('barcode_length', 'Barcode length', ['8', '10', '12'].map(x => ({ value: x, label: x })))}
           </div>
-        </Card>
-        <Card title="Sales rules">
+        </Section>
+        <Section title="Sales rules" desc="What the point of sale allows, and who may change saved documents.">
           <div className="grid gap-4 sm:grid-cols-2">
             {sel('allow_negative_stock', 'Allow selling without stock', yesNo)}
             {sel('walkin_due_allowed', 'Allow due for walk-in customers', yesNo)}
@@ -86,22 +100,22 @@ export function LocalSettings() {
             {sel('edit_lock_hours', 'Lock editing after', [{ value: '0', label: 'Never' }, { value: '6', label: '6 hours' }, { value: '12', label: '12 hours' }, { value: '24', label: '1 day' }], 'Administrators can always edit')}
             {inp('late_per_day', 'Late arrivals per day deduction', 'Payroll: this many lates = 1 day salary', 'number')}
           </div>
-        </Card>
-        <Card title="Customer rewards">
+        </Section>
+        <Section title="Customer rewards" desc="Points customers earn on purchases and can redeem at the counter.">
           <div className="grid gap-4 sm:grid-cols-2">
             {sel('reward_enabled', 'Reward points', yesNo, 'Only customers with “Get Reward = Yes” earn points')}
             {inp('reward_spend', 'Spend per point (৳)', 'e.g. 1000 → 1 point for every ৳1000', 'number')}
             {inp('reward_point_value', 'Value of 1 point (৳)', 'Discount when redeeming', 'number')}
           </div>
-        </Card>
-        <Card title="Printed notes" className="xl:col-span-2">
+        </Section>
+        <Section title="Printed notes" desc="Text printed at the foot of invoices, receipts and challans.">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Invoice footer note"><Textarea value={v.invoice_note ?? ''} onChange={e => set('invoice_note', e.target.value)} /></Field>
             <Field label="Invoice terms & conditions"><Textarea value={v.invoice_terms ?? ''} onChange={e => set('invoice_terms', e.target.value)} /></Field>
             <Field label="POS receipt note"><Textarea value={v.pos_receipt_note ?? ''} onChange={e => set('pos_receipt_note', e.target.value)} /></Field>
             <Field label="Challan note"><Textarea value={v.challan_note ?? ''} onChange={e => set('challan_note', e.target.value)} /></Field>
           </div>
-        </Card>
+        </Section>
       </div>
     </Guard>
   );
@@ -127,15 +141,17 @@ export function SmsSettings() {
   const g = (k: string, label: string, ph?: string) => <Field label={label}><Input value={v[k] ?? ''} onChange={e => set(k, e.target.value)} placeholder={ph} /></Field>;
   return (
     <Guard module="setting">
-      <PageHeader title="SMS Templates & Gateway" actions={<Button variant="primary" icon={<Save className="size-4" />} onClick={save}>Save</Button>} />
-      <div className="grid gap-4 xl:grid-cols-2">
+      <PageHeader title="SMS templates & gateway" actions={<Button variant="primary" icon={<Save className="size-4" />} onClick={save}>Save</Button>} />
+      <div className="max-w-[1152px]">
         {TPL.map(([k, title, vars]) => (
-          <Card key={k} title={title} actions={<Switch checked={v[`sms_tpl_${k}_status`] === 'active'} onChange={x => set(`sms_tpl_${k}_status`, x ? 'active' : 'inactive')} label={v[`sms_tpl_${k}_status`] === 'active' ? 'Active' : 'Off'} />}>
+          <Section key={k} title={title} desc={<>Sent automatically when it is switched on. Words in brackets are filled in for you.</>}
+            aside={<Switch checked={v[`sms_tpl_${k}_status`] === 'active'} onChange={x => set(`sms_tpl_${k}_status`, x ? 'active' : 'inactive')} label={v[`sms_tpl_${k}_status`] === 'active' ? 'On' : 'Off'} />}>
             <Textarea rows={3} value={v[`sms_tpl_${k}`] ?? ''} onChange={e => set(`sms_tpl_${k}`, e.target.value)} />
-            <p className="mt-2 text-xs text-muted">Variables: {vars}</p>
-          </Card>
+            <p className="mt-2 text-[12.5px] text-muted">Available: {vars}</p>
+          </Section>
         ))}
-        <Card title="SMS gateway" className="xl:col-span-2" actions={<Switch checked={v.sms_status === '1'} onChange={x => set('sms_status', x ? '1' : '0')} label={v.sms_status === '1' ? 'Sending enabled' : 'Disabled'} />}>
+        <Section title="SMS gateway" desc="Your SMS provider's address and the names it uses for each value. Send a test after saving."
+          aside={<Switch checked={v.sms_status === '1'} onChange={x => set('sms_status', x ? '1' : '0')} label={v.sms_status === '1' ? 'Sending on' : 'Sending off'} />}>
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="sm:col-span-2">{g('sms_gateway_url', 'Gateway URL', 'https://api.example.com/send')}</div>
             <Field label="SMS type"><Select value={v.sms_type} onChange={e => set('sms_type', e.target.value)}><option value="url">URL (GET query)</option><option value="api">API (POST JSON)</option></Select></Field>
@@ -149,10 +165,10 @@ export function SmsSettings() {
             <Field label="Message" className="min-w-[280px] flex-1"><Input value={test.body} onChange={e => setTest({ ...test, body: e.target.value })} /></Field>
             <Button icon={<Send className="size-4" />} onClick={async () => { await rpc('admin.saveSettings', v); const r = await rpc('admin.testSms', test.mobile, test.body); toast(r.ok ? 'Sent' : `Not sent: ${r.response}`, r.ok ? 'ok' : 'warn'); log.reload(); }}>Save & send test</Button>
           </div>
-        </Card>
-        <Card title="Recent SMS" pad={false} className="xl:col-span-2">
-          <DataTable dense rows={log.data ?? []} columns={[{ key: 'at', label: 'When', render: r => dateTime(r.at) }, { key: 'mobile', label: 'Mobile' }, { key: 'body', label: 'Message', render: r => <span className="line-clamp-2 text-xs">{r.body}</span> }, { key: 'status', label: 'Status', render: r => <Badge tone={r.status === 'sent' ? 'green' : r.status === 'failed' ? 'red' : 'gray'}>{r.status}</Badge> }, { key: 'response', label: 'Response', render: r => <span className="line-clamp-1 text-xs text-muted">{r.response}</span> }]} />
-        </Card>
+        </Section>
+        <Section title="Recent messages" desc="The last 300 messages and what the gateway answered.">
+          <DataTable dense bleed rows={log.data ?? []} columns={[{ key: 'at', label: 'When', render: r => dateTime(r.at) }, { key: 'mobile', label: 'Mobile' }, { key: 'body', label: 'Message', render: r => <span className="line-clamp-2 text-xs">{r.body}</span> }, { key: 'status', label: 'Status', render: r => <Badge tone={r.status === 'sent' ? 'green' : r.status === 'failed' ? 'red' : 'gray'}>{r.status}</Badge> }, { key: 'response', label: 'Response', render: r => <span className="line-clamp-1 text-xs text-muted">{r.response}</span> }]} />
+        </Section>
       </div>
     </Guard>
   );
@@ -177,20 +193,20 @@ export function DataManagement() {
     if (!(await confirm({ title: 'Permanently delete selected data?', body: <>This removes {sel.size} data group(s) for good. Master data (customers, products, ledgers) is kept. Download a backup first.</>, confirm: 'Delete data', danger: true }))) return;
     try { await rpc('admin.emptyData', pw, [...sel]); toast('Data removed'); setSel(new Set()); setPw(''); } catch (e: any) { toast(e.message, 'error'); }
   };
-  if (!me.is_admin) return <Card><p className="text-sm text-muted">Only administrators can manage data.</p></Card>;
+  if (!me.is_admin) return <p className="text-[14px] text-muted">Only administrators can manage data.</p>;
   return (
     <div>
-      <PageHeader title="Data Management" subtitle="Back up the whole database, or clear transaction data (e.g. after training)." />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Backup">
+      <PageHeader title="Data management" subtitle="Back up the whole database, or clear transaction data (e.g. after training)." />
+      <div className="max-w-[1152px]">
+        <Section title="Backup" desc="A complete copy of the database as a single .db file.">
           <p className="text-sm text-muted">Downloads a complete copy of the database (a single .db file). Keep it somewhere safe; to restore, replace <code className="rounded bg-surface-3 px-1">data/auralit.db</code> while the app is stopped.</p>
           <Button className="mt-4" variant="primary" icon={<Download className="size-4" />} onClick={backup}>Download backup</Button>
-        </Card>
-        <Card title="Empty transaction data">
+        </Section>
+        <Section title="Empty transaction data" desc={<>Removes the selected kinds of records for good. Customers, products and ledgers are kept. <span className="text-bad">Download a backup first.</span></>}>
           <div className="space-y-2">{GROUPS.map(([k, l]) => <Checkbox key={k} label={l} checked={sel.has(k)} onChange={v => { const n = new Set(sel); v ? n.add(k) : n.delete(k); setSel(n); }} />)}</div>
           <Field label="Your password" className="mt-4"><Input type="password" value={pw} onChange={e => setPw(e.target.value)} /></Field>
           <Button className="mt-4" variant="danger" icon={<Trash2 className="size-4" />} disabled={!sel.size || !pw} onClick={empty}>Delete selected data</Button>
-        </Card>
+        </Section>
       </div>
       <p className="mt-4 flex items-center gap-2 text-xs text-muted"><Database className="size-3.5" />Database file: data/auralit.db</p>
     </div>
@@ -210,23 +226,23 @@ export function Profile() {
   return (
     <div>
       <PageHeader title="Profile" subtitle={`${me.email} · ${me.role} · ${me.branch}`} />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Your details">
+      <div className="max-w-[1152px]">
+        <Section title="Your details" desc="Your name and photo appear in the top bar, on documents you create and in team chat.">
           <div className="grid gap-4">
             <ImageInput value={v.image} onChange={image => setV({ ...v, image })} />
             <Field label="Name"><Input value={v.name} onChange={e => setV({ ...v, name: e.target.value })} /></Field>
             <Field label="Mobile"><Input value={v.mobile} onChange={e => setV({ ...v, mobile: e.target.value })} /></Field>
           </div>
           <Button className="mt-4" variant="primary" onClick={save}>Save profile</Button>
-        </Card>
-        <Card title="Change password">
+        </Section>
+        <Section title="Change password" desc="Use at least 6 characters. Other sessions stay signed in.">
           <div className="grid gap-4">
             <Field label="Current password"><Input type="password" value={pw.old} onChange={e => setPw({ ...pw, old: e.target.value })} /></Field>
             <Field label="New password" hint="At least 6 characters"><Input type="password" value={pw.n1} onChange={e => setPw({ ...pw, n1: e.target.value })} /></Field>
             <Field label="Confirm new password"><Input type="password" value={pw.n2} onChange={e => setPw({ ...pw, n2: e.target.value })} /></Field>
           </div>
           <Button className="mt-4" variant="primary" disabled={!pw.old || !pw.n1} onClick={change}>Update password</Button>
-        </Card>
+        </Section>
       </div>
     </div>
   );
@@ -248,12 +264,12 @@ export function BulkSms() {
   return (
     <Guard module="client" action="write">
       <PageHeader title="Bulk SMS" subtitle="Send a message to all customers, suppliers, employees, or a custom list. Uses the gateway in SMS settings." />
-      <Card className="max-w-2xl">
+      <div className="max-w-[1152px]"><Section title="Message" desc="Each number gets the same text. Long messages may be split by your provider.">
         <Field label="Send to"><Select value={group} onChange={e => setGroup(e.target.value as any)}><option value="customers">All active customers</option><option value="suppliers">All active suppliers</option><option value="employees">All active employees</option><option value="custom">Custom numbers</option></Select></Field>
         {group === 'custom' && <Field label="Mobile numbers" className="mt-4" hint="Separate with commas, spaces or new lines"><Textarea value={mobiles} onChange={e => setMobiles(e.target.value)} /></Field>}
         <Field label="Message" className="mt-4" hint={`${body.length} characters`}><Textarea rows={5} value={body} onChange={e => setBody(e.target.value)} /></Field>
         <Button className="mt-4" variant="primary" icon={<Send className="size-4" />} disabled={!body.trim()} loading={busy} onClick={send}>Send</Button>
-      </Card>
+      </Section></div>
     </Guard>
   );
 }

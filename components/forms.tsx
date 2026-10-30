@@ -47,8 +47,8 @@ export function FieldInput({ f, value, onChange, values, autoFocus }: { f: Field
   const t = f.type ?? 'text';
   if (t === 'textarea') return <Textarea value={value ?? ''} onChange={e => onChange(e.target.value)} placeholder={f.placeholder} />;
   if (t === 'select') return (
-    <Select value={value ?? ''} onChange={e => onChange(e.target.value)}>
-      {!f.required && f.default === undefined && <option value="">— Select —</option>}
+    <Select value={value ?? ''} onChange={e => onChange(e.target.value)} style={value ? undefined : { color: 'var(--muted)' }}>
+      {!f.required && f.default === undefined && <option value="">{f.placeholder ?? '— Select —'}</option>}
       {f.options?.map(o => <option key={String(o.value)} value={o.value}>{o.label}</option>)}
     </Select>
   );

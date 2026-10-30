@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Ban, CheckCircle2, Eye, Plus, Printer, RotateCcw, Trash2 } from 'lucide-react';
 import { rpc, useRpc } from '@/lib/client/rpc';
 import { date, money, monthStart, todayISO } from '@/lib/format';
-import { Button, Card, Field, IconButton, Input, Loading, PageHeader, Tabs } from '@/components/ui/primitives';
+import { Button, Card, cx, Field, IconButton, Input, Loading, PageHeader, Tabs } from '@/components/ui/primitives';
 import { Combobox, RefSelect, useLookup } from '@/components/ui/combobox';
 import { DataTable, SearchInput, type Col } from '@/components/ui/table';
 import { Drawer, Modal, useUI } from '@/components/ui/overlay';
@@ -25,7 +25,7 @@ export function OfferAssign() {
   };
   return (
     <Guard module="offer">
-      <PageHeader title="Set Coupon & Offer On Item" subtitle="Attach an offer to a product, a whole brand, category or sub-category. The discount is applied automatically at the POS." actions={<Button href="/data/offer">Manage offers</Button>} />
+      <PageHeader title="Set coupon & offer on item" subtitle="Attach an offer to a product, a whole brand, category or sub-category. The discount is applied automatically at the POS." actions={<Button href="/data/offer">Manage offers</Button>} />
       <Card title="Assign">
         <div className="grid gap-3 md:grid-cols-[1fr_180px_1.4fr_auto] md:items-end">
           <Field label="Offer"><Combobox value={offer} onChange={setOffer} options={offers.options} placeholder="Choose offer" /></Field>
@@ -54,14 +54,12 @@ export function Rebates() {
   const [view, setView] = useState<number | null>(null);
   return (
     <Guard module="offer">
-      <PageHeader title="Rebate Claims" subtitle="Claim supplier-funded offer discounts back from suppliers." actions={<><HistoryButton entities={['rebate']} />{can('offer', 'write') && <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setOpen(true)}>Claim rebate</Button>}</>} />
-      <Card pad={false}>
-        <DataTable loading={loading} rows={data ?? []} columns={[
-          { key: 'date', label: 'Date', type: 'date' }, { key: 'no', label: 'No' }, { key: 'supplier', label: 'Supplier' }, { key: 'from_date', label: 'From', type: 'date' }, { key: 'to_date', label: 'To', type: 'date' },
+      <PageHeader title="Rebate claims" subtitle="Claim supplier-funded offer discounts back from suppliers." actions={<><HistoryButton entities={['rebate']} />{can('offer', 'write') && <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setOpen(true)}>Claim rebate</Button>}</>} />
+      <DataTable bleed loading={loading} rows={data ?? []} columns={[
+          { key: 'date', label: 'Date', type: 'date' }, { key: 'no', label: 'No', type: 'id' }, { key: 'supplier', label: 'Supplier' }, { key: 'from_date', label: 'From', type: 'date' }, { key: 'to_date', label: 'To', type: 'date' },
           { key: 'items', label: 'Items', type: 'number' }, { key: 'amount', label: 'Amount', type: 'money' },
           { key: '__a', label: '', align: 'right', render: r => <div className="flex justify-end"><IconButton label="View" onClick={() => setView(r.id)}><Eye className="size-4" /></IconButton>{can('offer', 'delete') && <IconButton label="Delete" onClick={async () => { if (await confirm({ title: `Delete ${r.no}?`, danger: true, confirm: 'Delete' })) { await rpc('ops.deleteRebate', r.id); toast('Deleted'); reload(); } }}><Trash2 className="size-4" /></IconButton>}</div> },
         ]} totals />
-      </Card>
       <NewRebate open={open} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); reload(); }} />
       <RebateView id={view} onClose={() => setView(null)} />
     </Guard>
@@ -119,14 +117,14 @@ export function Cheques() {
   const [act, setAct] = useState<{ row: any; action: 'clear' | 'bounce' | 'pending' } | null>(null);
   const [note, setNote] = useState('');
   const cols: Col[] = [
-    { key: 'date', label: 'Date', type: 'date' }, { key: 'ref_no', label: 'Invoice / Receipt' }, { key: 'cheque_no', label: 'Cheque No', render: r => <span className="font-mono text-xs">{r.cheque_no}</span> },
-    { key: 'cheque_date', label: 'Cheque Date', render: r => <span className={r.status === 'pending' && r.cheque_date && r.cheque_date <= todayISO() ? 'font-medium text-warn' : ''}>{date(r.cheque_date)}</span> },
+    { key: 'date', label: 'Date', type: 'date' }, { key: 'ref_no', label: 'Invoice / receipt', type: 'id' }, { key: 'cheque_no', label: 'Cheque no', type: 'id' },
+    { key: 'cheque_date', label: 'Cheque date', render: r => <span className={cx('whitespace-nowrap', r.status === 'pending' && r.cheque_date && r.cheque_date <= todayISO() && 'font-medium text-warn')}>{date(r.cheque_date)}</span> },
     { key: 'amount', label: 'Amount', type: 'money' }, { key: 'status', label: 'Status', type: 'badge' }, ...(tab === 'cleared' ? [{ key: 'mode', label: 'Mode' } as Col, { key: 'direction', label: 'In/Out', render: (r: any) => r.direction === 'in' ? 'Received' : 'Paid' } as Col] : []),
-    { key: 'account', label: 'A/C' }, { key: 'party', label: 'Client' }, { key: 'note', label: 'Note', render: r => <span className="text-xs text-muted">{r.note}</span> },
+    { key: 'account', label: 'Account' }, { key: 'party', label: 'Party' }, ...((data ?? []).some((r: any) => r.note) ? [{ key: 'note', label: 'Note', render: (r: any) => <span className="text-xs text-muted">{r.note}</span> } as Col] : []),
     { key: '__a', label: '', align: 'right', render: r => can('acctra', 'edit') && (
       <div className="flex justify-end gap-1">
         {r.status !== 'cleared' && <Button size="xs" variant="success" icon={<CheckCircle2 className="size-3.5" />} onClick={() => { setNote(''); setAct({ row: r, action: 'clear' }); }}>Clear</Button>}
-        {r.status === 'pending' && <Button size="xs" variant="danger" icon={<Ban className="size-3.5" />} onClick={() => { setNote(''); setAct({ row: r, action: 'bounce' }); }}>Bounce</Button>}
+        {r.status === 'pending' && <Button size="xs" variant="dangerOutline" icon={<Ban className="size-3.5" />} onClick={() => { setNote(''); setAct({ row: r, action: 'bounce' }); }}>Bounce</Button>}
         {r.status !== 'pending' && <Button size="xs" icon={<RotateCcw className="size-3.5" />} onClick={() => { setNote(''); setAct({ row: r, action: 'pending' }); }}>Reset</Button>}
       </div>
     ) },
@@ -136,14 +134,13 @@ export function Cheques() {
   };
   return (
     <Guard module="acctra">
-      <PageHeader title="Cheque Management" subtitle="Cheques recorded on invoices and vouchers. Clearing marks them done; bouncing reverses the money against the party." actions={<HistoryButton entities={['cheque']} />} />
-      <Card pad={false}>
-        <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
-          <Tabs value={tab} onChange={setTab} tabs={[{ value: 'in', label: 'Cheque Received' }, { value: 'out', label: 'Cheque Payment' }, { value: 'cleared', label: 'Cheque Clear' }]} />
-          <SearchInput value={q} onChange={setQ} placeholder="Cheque no, reference, party…" className="w-72" />
-        </div>
-        <DataTable loading={loading} rows={data ?? []} columns={cols} totals />
-      </Card>
+      <PageHeader title="Cheque management" subtitle="Cheques recorded on invoices and vouchers. Clearing marks them done; bouncing reverses the money against the party." actions={<HistoryButton entities={['cheque']} />} />
+      <Tabs className="mb-4" value={tab} onChange={setTab} tabs={[{ value: 'in', label: 'Received' }, { value: 'out', label: 'Issued' }, { value: 'cleared', label: 'Cleared' }]} />
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <SearchInput value={q} onChange={setQ} placeholder="Cheque no, reference, party…" className="w-full sm:w-80" />
+        {data && <span className="ml-auto text-[13px] text-muted">{data.length} cheque{data.length === 1 ? '' : 's'}</span>}
+      </div>
+      <DataTable bleed loading={loading} rows={data ?? []} columns={cols} totals />
       <Modal open={!!act} onClose={() => setAct(null)} title={act ? `${act.action === 'clear' ? 'Clear' : act.action === 'bounce' ? 'Bounce' : 'Reset'} cheque ${act.row.cheque_no}` : ''} size="sm"
         footer={<><Button onClick={() => setAct(null)}>Cancel</Button><Button variant={act?.action === 'bounce' ? 'danger' : 'primary'} onClick={run}>Confirm</Button></>}>
         {act?.action === 'bounce' && <p className="mb-3 text-sm text-ink-2">The {money(act.row.amount)} will be moved back to the party&apos;s balance.</p>}

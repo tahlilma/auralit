@@ -267,7 +267,7 @@ function Editor({ kind, id }: { kind: DocKind; id?: number }) {
         </div>
 
         {/* summary */}
-        <div className="space-y-4 lg:sticky lg:top-[72px] lg:self-start">
+        <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
           <Card pad>
             <div className="grid grid-cols-2 gap-3">
               {isSale && <Field label="Date"><Input type="date" value={s.date} onChange={e => up({ date: e.target.value })} /></Field>}
@@ -278,10 +278,11 @@ function Editor({ kind, id }: { kind: DocKind; id?: number }) {
             </div>
             <div className="mt-4 space-y-2.5">
               <AdjRow label="Discount">
-                <div className="flex gap-1">
-                  <Input inputSize="sm" type="number" className="num w-24 text-right" value={(s.discountMode === 'pct' ? s.discount_pct : s.discount) || ''} placeholder="0"
+                <div className="relative w-36 flex-none">
+                  <Input inputSize="sm" type="number" className="num w-full pr-12 text-right" value={(s.discountMode === 'pct' ? s.discount_pct : s.discount) || ''} placeholder="0" aria-label={s.discountMode === 'pct' ? 'Discount percent' : 'Discount amount'}
                     onChange={e => up(s.discountMode === 'pct' ? { discount_pct: Number(e.target.value) || 0 } : { discount: Number(e.target.value) || 0 })} />
-                  <button type="button" onClick={() => up({ discountMode: s.discountMode === 'pct' ? 'amt' : 'pct' })} className="h-8 w-9 rounded-lg border border-line-strong text-xs font-semibold text-ink-2 hover:bg-surface-3">{s.discountMode === 'pct' ? '%' : '৳'}</button>
+                  <button type="button" onClick={() => up({ discountMode: s.discountMode === 'pct' ? 'amt' : 'pct' })} title="Switch between amount and percent"
+                    className="absolute inset-y-1 right-1 w-9 rounded bg-surface-2 text-[14px] font-medium text-ink-2 hover:bg-surface-3">{s.discountMode === 'pct' ? '%' : '৳'}</button>
                 </div>
               </AdjRow>
               <AdjRow label={isPurchase ? 'VAT %' : 'VAT %'}><Num value={s.vat_pct} onChange={v => up({ vat_pct: v })} /></AdjRow>
@@ -305,9 +306,9 @@ function Editor({ kind, id }: { kind: DocKind; id?: number }) {
               {totals.less > 0 && <TotRow k="Less" v={-totals.less} />}
               {totals.exchange > 0 && <TotRow k="Exchange items" v={-totals.exchange} />}
             </dl>
-            <div className="mt-3 flex items-baseline justify-between rounded-xl bg-brand-soft px-3 py-3">
-              <span className="text-sm font-semibold text-brand">Total</span>
-              <span className="num text-2xl font-bold tracking-tight text-ink">{money(totals.total)}</span>
+            <div className="mt-4 flex items-baseline justify-between rounded-lg bg-surface-2 px-4 py-3.5">
+              <span className="text-[14px] font-medium text-ink-2">Total</span>
+              <span className="num text-[28px] font-semibold leading-none text-ink">{money(totals.total)}</span>
             </div>
           </Card>
 
@@ -384,7 +385,7 @@ function AdjRow({ label, children }: { label: React.ReactNode; children: React.R
   return <div className="flex items-center justify-between gap-3 text-[13px]"><span className="text-ink-2">{label}</span>{children}</div>;
 }
 function Num({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  return <Input inputSize="sm" type="number" className="num w-[132px] text-right" value={value || ''} placeholder="0" onChange={e => onChange(Number(e.target.value) || 0)} />;
+  return <Input inputSize="sm" type="number" className="num w-36 flex-none text-right" value={value || ''} placeholder="0" onChange={e => onChange(Number(e.target.value) || 0)} />;
 }
 function TotRow({ k, v }: { k: string; v: number }) {
   return <div className="flex justify-between"><dt className="text-muted">{k}</dt><dd className={cx('num', v < 0 && 'text-bad')}>{money(v)}</dd></div>;
@@ -416,7 +417,7 @@ function CustomerPicker({ value, onChange, onNew, walkin, setWalkin, showWalkin,
       )}
       {!value && showWalkin && (
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          <Field label="Name"><Input value={walkin.name} onChange={e => setWalkin({ name: e.target.value })} placeholder="Walk-in Customer" /></Field>
+          <Field label="Name"><Input value={walkin.name} onChange={e => setWalkin({ name: e.target.value })} placeholder="Walk-in customer" /></Field>
           <Field label="Mobile"><Input value={walkin.mobile} onChange={e => setWalkin({ mobile: e.target.value })} placeholder="01XXXXXXXXX" /></Field>
           <Field label="Email"><Input value={walkin.email} onChange={e => setWalkin({ email: e.target.value })} /></Field>
           <Field label="District"><Combobox value={walkin.district_id} onChange={v => setWalkin({ district_id: v, zone_id: null })} options={districts} /></Field>
@@ -483,7 +484,7 @@ function ItemSearch({ kind, inputRef, onPick, onScan }: { kind: DocKind; inputRe
         <div className="absolute inset-x-0 top-full z-30 mt-1 max-h-96 overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-pop thin-scroll">
           {res.map((it, i) => (
             <button key={it.id} type="button" onMouseDown={e => e.preventDefault()} onMouseEnter={() => setActive(i)} onClick={() => pick(it)}
-              className={cx('flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left', i === active && 'bg-brand-soft')}>
+              className={cx('flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left', i === active && 'bg-surface-2')}>
               {!isSvc && (it.image ? <img src={it.image} alt="" className="size-9 rounded-md object-cover" /> : <span className="flex size-9 items-center justify-center rounded-md bg-surface-3 text-muted"><Boxes className="size-4" /></span>)}
               <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{it.name}</span><span className="block truncate text-xs text-muted">{it.code}{it.model ? ` · ${it.model}` : ''}{it.brand ? ` · ${it.brand}` : ''}{it.category ? ` · ${it.category}` : ''}</span></span>
               {it.offer && <Badge tone="green">{it.offer.percent ? `${it.offer.percent}% off` : `${money(it.offer.fixed)} off`}</Badge>}
@@ -505,9 +506,9 @@ function Browser({ kind, setup, onPick }: { kind: DocKind; setup: Setup; onPick:
   const [page, setPage] = useState(1);
   const isSvc = DOC_META[kind].items === 'service';
   const { data, loading } = useRpc('docs.searchItems', [kind, { category_id: cat, subcategory_id: sub, brand_id: brand, page, size: 24 }], [cat, sub, brand, page]);
-  const chip = (on: boolean) => cx('whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium transition', on ? 'border-brand bg-brand text-brand-ink' : 'border-line bg-surface hover:border-line-strong');
+  const chip = (on: boolean) => cx('whitespace-nowrap rounded-full border px-3 py-1 text-[13px] font-medium transition', on ? 'border-line-strong bg-surface-3 text-ink' : 'border-line bg-surface text-muted hover:text-ink');
   return (
-    <div className="border-b border-line bg-surface-2 p-3">
+    <div className="border-b border-line bg-surface-2 px-5 py-3">
       <div className="thin-scroll flex gap-1.5 overflow-x-auto pb-2">
         <button className={chip(!cat)} onClick={() => { setCat(undefined); setSub(undefined); setPage(1); }}>All categories</button>
         {setup.categories.map((c: any) => <button key={c.id} className={chip(cat === c.id)} onClick={() => { setCat(c.id); setSub(undefined); setPage(1); }}>{c.name}</button>)}
@@ -525,7 +526,7 @@ function Browser({ kind, setup, onPick }: { kind: DocKind; setup: Setup; onPick:
       )}
       <div className={cx('mt-1 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4', loading && 'opacity-60')}>
         {data?.map((it: Item) => (
-          <button key={it.id} type="button" onClick={() => onPick(it)} className="group flex items-center gap-2.5 rounded-xl border border-line bg-surface p-2 text-left transition hover:border-brand hover:shadow-card">
+          <button key={it.id} type="button" onClick={() => onPick(it)} className="group flex items-center gap-2.5 rounded-lg border border-line bg-surface p-2 text-left transition hover:border-line-strong hover:bg-surface-2">
             {!isSvc && (it.image ? <img src={it.image} alt="" className="size-11 rounded-lg object-cover" /> : <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-surface-3 text-muted"><Tag className="size-4" /></span>)}
             <span className="min-w-0 flex-1"><span className="line-clamp-2 text-[12.5px] font-medium leading-snug">{it.name}</span><span className="num mt-0.5 block text-xs text-muted">{money(DOC_META[kind].rate === 'cost' ? it.cost : it.price)}{!isSvc && ` · ${num(it.stock)}`}</span></span>
           </button>
@@ -556,7 +557,7 @@ function CartTable({ kind, lines, setup, setLine, remove, openSerials, openDetai
     <div className="thin-scroll overflow-x-auto">
       <table className="w-full text-[13px]">
         <thead>
-          <tr className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+          <tr className="text-[12.5px] text-muted [&>th]:font-normal">
             <th className="w-8 px-3 py-2 text-left">#</th><th className="px-2 py-2 text-left">Item</th>
             {kind === 'porder' && <th className="w-20 px-2 py-2 text-right">E.Qty</th>}
             <th className="w-20 px-2 py-2 text-right">Qty</th><th className="w-28 px-2 py-2 text-right">{isPurchase ? 'Cost' : 'Price'}</th>

@@ -3,6 +3,9 @@ import type { DatabaseSync } from 'node:sqlite';
 import { DISTRICTS, EXPENSE_HEADS, UPAZILAS } from './seed-data';
 import { ALL_MODULES } from '../permissions';
 
+export const DEFAULT_ADMIN = 'admin@auralit.local';
+export const DEFAULT_PASSWORD = 'admin123';
+
 export function hashPassword(pw: string): string {
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = crypto.scryptSync(pw, salt, 64).toString('hex');
@@ -20,7 +23,7 @@ const GROUPS: [string, number, string[]][] = [
     'Salaries,Wages & Allowance Payable', 'Other Current Liabilities', 'Commission Agent', 'Delivered Later', 'Duties & Taxes']],
   ['Operating Revenue', 5, ['Goods Sales', 'Service Income', 'Other Operating Sales', 'Goods Return']],
   ['Non Operating Revenue', 5, ['Interest Income', 'Incentive Income', 'Other Income', 'Damage Recover']],
-  ['Direct Expense', 4, ['Cost Of Goods Sold', 'Cost Of Goods Return', 'Product Adjust', 'Selling Expenses', 'Purchase Expenses']],
+  ['Direct Expense', 4, ['Cost of Goods Sold', 'Cost of Goods Return', 'Product Adjust', 'Selling Expenses', 'Purchase Expenses']],
   ['Indirect Expenses', 4, ['Administrative Expenses', 'Operating Expenses']],
 ];
 
@@ -32,16 +35,16 @@ export const SYSTEM_LEDGERS: Record<string, [string, string]> = {
   SALES: ['Goods Sales', 'Goods Sales'],
   SALES_RETURN: ['Sales Return', 'Goods Return'],
   SERVICE_INCOME: ['Service Income', 'Service Income'],
-  COGS: ['Cost Of Goods Sold', 'Cost Of Goods Sold'],
+  COGS: ['Cost of Goods Sold', 'Cost of Goods Sold'],
   VAT_OUT: ['VAT Payable', 'Duties & Taxes'],
   AIT_OUT: ['AIT Payable', 'Duties & Taxes'],
-  VAT_IN: ['VAT On Purchase', 'Purchase Expenses'],
-  TAX_IN: ['Tax On Purchase', 'Purchase Expenses'],
+  VAT_IN: ['VAT on Purchase', 'Purchase Expenses'],
+  TAX_IN: ['Tax on Purchase', 'Purchase Expenses'],
   OTHER_PURCHASE: ['Other Direct Expenses', 'Purchase Expenses'],
   FREIGHT_PURCHASE: ['Freight On Purchase', 'Purchase Expenses'],
-  DISC_ITEM: ['Discount On Item', 'Selling Expenses'],
-  DISC_SALES: ['Discount On Sales', 'Selling Expenses'],
-  LESS_SALES: ['Less Given On Sales', 'Selling Expenses'],
+  DISC_ITEM: ['Discount on Item', 'Selling Expenses'],
+  DISC_SALES: ['Discount on Sales', 'Selling Expenses'],
+  LESS_SALES: ['Less Given on Sales', 'Selling Expenses'],
   REWARD: ['Reward Points Redeemed', 'Selling Expenses'],
   LESS_RECEIVE: ['Less Taken On Received', 'Selling Expenses'],
   OTHER_SALES: ['Other Charges On Sales', 'Other Operating Sales'],
@@ -55,7 +58,7 @@ export const SYSTEM_LEDGERS: Record<string, [string, string]> = {
   WARRANTY_BAD: ['Warranty Bad Stock', 'Warranty Bad Stock'],
   CAPITAL: ['Capital', 'Share Capital'],
   OPENING: ['Opening Balance Equity', 'Reserves & Surplus'],
-  SALARY: ['Salaries,Wages And Allowance', 'Administrative Expenses'],
+  SALARY: ['Salaries, Wages and Allowance', 'Administrative Expenses'],
   BONUS: ['Festival Bonus Expense', 'Administrative Expenses'],
   SALARY_PAYABLE: ['Salaries Payable', 'Salaries,Wages & Allowance Payable'],
   DONATION: ['Tips & Donations', 'Administrative Expenses'],
@@ -63,7 +66,7 @@ export const SYSTEM_LEDGERS: Record<string, [string, string]> = {
   SERVICE_EXPENSE: ['Service Expenses', 'Operating Expenses'],
 };
 
-const OPERATING_HEADS = new Set(['Sales Commission', 'Home Delivery', 'Labour & Transportation', 'Business Promotion Expenses', 'Service Expenses', 'Cash Back On Item']);
+const OPERATING_HEADS = new Set(['Sales Commission', 'Home Delivery', 'Labour & Transportation', 'Business Promotion Expenses', 'Service Expenses', 'Cash Back on Item']);
 
 export function seed(db: DatabaseSync) {
   const ins = (sql: string, ...p: any[]) => Number(db.prepare(sql).run(...p).lastInsertRowid);
@@ -101,7 +104,7 @@ export function seed(db: DatabaseSync) {
   for (const k of ['sales', 'service', 'client', 'personal', 'enquiry']) salesPerms[k] = { read: true, write: true, edit: false, delete: false, print: true };
   salesPerms.product = { read: true, write: false, edit: false, delete: false, print: true };
   ins(`INSERT INTO roles (name, description, perms, report_perms) VALUES ('Sales', 'Counter sales staff', ?, '[]')`, JSON.stringify(salesPerms));
-  ins(`INSERT INTO users (name, email, password, role_id, branch_id) VALUES ('Administrator', 'admin@example.com', ?, ?, 1)`, hashPassword('admin123'), adminRole);
+  ins(`INSERT INTO users (name, email, password, role_id, branch_id) VALUES ('Administrator', ?, ?, ?, 1)`, DEFAULT_ADMIN, hashPassword(DEFAULT_PASSWORD), adminRole);
 
   // Masters
   const bd = ins(`INSERT INTO countries (name) VALUES ('Bangladesh')`);

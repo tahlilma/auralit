@@ -2,24 +2,24 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Download, Eye, Pencil, Plus, Printer, Trash2, X } from 'lucide-react';
+import { Download, Eye, History, Pencil, Plus, Printer, Trash2, X } from 'lucide-react';
 import { rpc, useRpc } from '@/lib/client/rpc';
-import { date, dateTime, downloadCsv, inWords, money, monthStart, todayISO } from '@/lib/format';
-import { Button, Card, cx, ErrorBox, Field, IconButton, Input, Loading, Money, PageHeader, Textarea } from '@/components/ui/primitives';
-import { DataTable, DateRange, Pager, SearchInput, type Col } from '@/components/ui/table';
+import { date, dateTime, downloadCsv, inWords, money, monthStart, num, todayISO } from '@/lib/format';
+import { Button, Card, cx, ErrorBox, Field, IconButton, Id, Input, Loading, PageHeader, Textarea } from '@/components/ui/primitives';
+import { DataTable, DateRange, Pager, RowMenu, SearchInput, type Col } from '@/components/ui/table';
 import { RefSelect } from '@/components/ui/combobox';
 import { useUI } from '@/components/ui/overlay';
-import { HistoryButton } from '@/components/history';
+import { HistoryDrawer } from '@/components/history';
 import { Guard, useSession } from '@/components/shell/session';
 
 export type VKind = 'payment' | 'receipt' | 'journal' | 'contra' | 'expense' | 'donation';
 const META: Record<VKind, { label: string; plural: string; module: string; dr: string; cr: string; drRef: string; crRef: string; less?: boolean; charge?: boolean; invoice?: boolean; xrate?: boolean; cheque?: boolean; memo?: boolean }> = {
-  payment: { label: 'Payment Voucher', plural: 'Payment Vouchers', module: 'acctra', dr: 'Pay to', cr: 'Payment source', drRef: 'party_ledger', crRef: 'money_loan', less: true, invoice: true, cheque: true },
-  receipt: { label: 'Receive Voucher', plural: 'Receive Vouchers', module: 'acctra', dr: 'Received to', cr: 'Received from', drRef: 'money_loan', crRef: 'party_ledger', less: true, invoice: true, xrate: true, cheque: true },
-  journal: { label: 'Journal Voucher', plural: 'Journal Entries', module: 'acctra', dr: 'Debit ledger', cr: 'Credit ledger', drRef: 'ledger', crRef: 'ledger', cheque: true },
-  contra: { label: 'Transaction', plural: 'Bank / Cash Transfers', module: 'acctra', dr: 'Transfer to', cr: 'Source', drRef: 'money_loan', crRef: 'money_loan', charge: true, cheque: true },
-  expense: { label: 'Expenses Voucher', plural: 'Expenses Record', module: 'daily', dr: 'Expenses head', cr: '', drRef: 'expense_head', crRef: '', memo: true },
-  donation: { label: 'Donation Voucher', plural: 'Donations', module: 'acctra', dr: 'Paid to (name)', cr: 'Payment source', drRef: '', crRef: 'money_loan', cheque: true, memo: true },
+  payment: { label: 'Payment voucher', plural: 'Payment vouchers', module: 'acctra', dr: 'Pay to', cr: 'Payment source', drRef: 'party_ledger', crRef: 'money_loan', less: true, invoice: true, cheque: true },
+  receipt: { label: 'Receive voucher', plural: 'Receive vouchers', module: 'acctra', dr: 'Received to', cr: 'Received from', drRef: 'money_loan', crRef: 'party_ledger', less: true, invoice: true, xrate: true, cheque: true },
+  journal: { label: 'Journal voucher', plural: 'Journal entries', module: 'acctra', dr: 'Debit ledger', cr: 'Credit ledger', drRef: 'ledger', crRef: 'ledger', cheque: true },
+  contra: { label: 'Transaction', plural: 'Bank / cash transfers', module: 'acctra', dr: 'Transfer to', cr: 'Source', drRef: 'money_loan', crRef: 'money_loan', charge: true, cheque: true },
+  expense: { label: 'Expenses voucher', plural: 'Expenses record', module: 'daily', dr: 'Expenses head', cr: '', drRef: 'expense_head', crRef: '', memo: true },
+  donation: { label: 'Donation voucher', plural: 'Donations', module: 'acctra', dr: 'Paid to (name)', cr: 'Payment source', drRef: '', crRef: 'money_loan', cheque: true, memo: true },
 };
 
 type VLine = { dr?: number | null; cr?: number | null; amount: number | ''; less?: number | ''; less_ref?: string; charge?: number | ''; cheque_no?: string; cheque_date?: string; ref?: string; memo?: string; ref_doc_no?: string; xrate?: number | '' };
@@ -125,10 +125,10 @@ function Editor({ kind, id }: { kind: VKind; id?: number }) {
           ))}
           <Button icon={<Plus className="size-4" />} onClick={() => setLines([...lines, { ...blankLine(), cr: kind === 'payment' || kind === 'contra' || kind === 'donation' ? lines[lines.length - 1]?.cr : undefined, dr: kind === 'receipt' ? lines[lines.length - 1]?.dr : undefined }])}>Add line</Button>
         </div>
-        <Card className="lg:sticky lg:top-[72px] lg:self-start">
+        <Card className="lg:sticky lg:top-6 lg:self-start">
           <Field label="Date"><Input type="date" value={dt} onChange={e => setDt(e.target.value)} /></Field>
           <Field label="Narration / note" className="mt-3"><Textarea rows={3} value={note} onChange={e => setNote(e.target.value)} /></Field>
-          <div className="mt-4 flex items-baseline justify-between rounded-xl bg-brand-soft px-3 py-3"><span className="text-sm font-semibold text-brand">Total</span><span className="num text-2xl font-bold">{money(total)}</span></div>
+          <div className="mt-4 flex items-baseline justify-between rounded-lg bg-surface-2 px-4 py-3.5"><span className="text-[14px] font-medium text-ink-2">Total</span><span className="num text-[28px] font-semibold leading-none">{money(total)}</span></div>
           <div className="mt-4 grid gap-2">
             <Button variant="primary" size="lg" loading={busy} icon={<Printer className="size-4" />} onClick={() => save(true)}>Save & print</Button>
             <Button size="lg" loading={busy} onClick={() => save(false)}>Save</Button>
@@ -159,41 +159,46 @@ function VList({ kind }: { kind: VKind }) {
     if (!(await confirm({ title: `Delete ${r.no}?`, body: 'The accounting entries of this voucher will be removed.', confirm: 'Delete', danger: true }))) return;
     try { await rpc('vouchers.deleteVoucher', r.id); toast('Voucher deleted'); reload(); } catch (e: any) { toast(e.message, 'error'); }
   };
+  const [historyOpen, setHistoryOpen] = useState(false);
   const cols: Col[] = [
     { key: 'date', label: 'Date', type: 'date' },
-    { key: 'no', label: 'Voucher No', render: r => <Link href={`/vouchers/${kind}/${r.id}`} className="font-medium text-brand hover:underline" onClick={e => e.stopPropagation()}>{r.no}</Link> },
-    { key: 'party', label: kind === 'receipt' ? 'Received from' : kind === 'expense' ? 'Expense heads' : kind === 'contra' ? 'Transfer to' : kind === 'journal' ? 'Debit' : 'Paid to', render: r => <span className="line-clamp-2 text-[13px]">{r.party}</span> },
-    { key: 'source', label: kind === 'receipt' ? 'Received into' : 'Source', render: r => <span className="text-[13px] text-muted">{r.source}</span> },
+    { key: 'no', label: 'Voucher', render: r => <Link href={`/vouchers/${kind}/${r.id}`} className="text-ink hover:underline" onClick={e => e.stopPropagation()}><Id>{r.no}</Id></Link> },
+    { key: 'party', label: kind === 'receipt' ? 'Received from' : kind === 'expense' ? 'Expense heads' : kind === 'contra' ? 'Transfer to' : kind === 'journal' ? 'Debit' : 'Paid to', render: r => <span className="line-clamp-2 text-ink">{r.party}</span> },
+    { key: 'source', label: kind === 'receipt' ? 'Received into' : 'Paid from', render: r => <span className="text-[13px] text-muted">{r.source ?? '—'}</span> },
     { key: 'amount', label: 'Amount', type: 'money' },
-    { key: 'refs', label: 'Ref.', render: r => <span className="text-xs text-muted">{r.refs}</span> },
-    { key: 'note', label: 'Note', render: r => <span className="line-clamp-1 max-w-[200px] text-xs text-muted">{r.note}</span> },
-    { key: 'created_by_name', label: 'Created', render: r => <span className="text-xs text-muted">{r.created_by_name}<br />{dateTime(r.created_at)}</span> },
-    { key: '__a', label: '', align: 'right', width: '1%', render: r => (
-      <div className="flex justify-end gap-0.5 opacity-70 group-hover:opacity-100" onClick={e => e.stopPropagation()}>
-        <IconButton label="View" onClick={() => router.push(`/vouchers/${kind}/${r.id}`)}><Eye className="size-4" /></IconButton>
-        <IconButton label="Print" onClick={() => router.push(`/vouchers/${kind}/${r.id}?print=1`)}><Printer className="size-4" /></IconButton>
-        {can(m.module, 'edit') && <IconButton label="Edit" onClick={() => router.push(`/vouchers/${kind}/${r.id}/edit`)}><Pencil className="size-4" /></IconButton>}
-        {can(m.module, 'delete') && <IconButton label="Delete" className="hover:!text-bad" onClick={() => del(r)}><Trash2 className="size-4" /></IconButton>}
-      </div>
+    { key: 'refs', label: 'Reference', render: r => <span className="text-[13px] text-muted">{r.refs || '—'}</span> },
+    { key: 'note', label: 'Note', render: r => <span className="line-clamp-1 max-w-[220px] text-[13px] text-muted">{r.note || '—'}</span> },
+    { key: 'created_by_name', label: 'Created by', render: r => <div className="text-[13px]"><p className="text-ink-2">{r.created_by_name}</p><p className="text-[12.5px] text-muted">{dateTime(r.created_at)}</p></div> },
+    { key: '__a', label: <span className="sr-only">Actions</span>, align: 'right', width: '1%', render: r => (
+      <RowMenu label={'Actions for ' + r.no} actions={[
+        { label: 'Open', icon: <Eye className="size-4" />, onClick: () => router.push('/vouchers/' + kind + '/' + r.id) },
+        { label: 'Print', icon: <Printer className="size-4" />, onClick: () => router.push('/vouchers/' + kind + '/' + r.id + '?print=1') },
+        { label: 'Edit', icon: <Pencil className="size-4" />, onClick: () => router.push('/vouchers/' + kind + '/' + r.id + '/edit'), hidden: !can(m.module, 'edit') },
+        { label: 'Delete', icon: <Trash2 className="size-4" />, onClick: () => del(r), danger: true, hidden: !can(m.module, 'delete') },
+      ]} />
     ) },
   ];
+  const exportCsv = async () => { const all = await rpc('vouchers.listVouchers', kind, { ...args, page: 1, size: 5000 }); downloadCsv(m.plural, ['Date', 'No', 'Party', 'Source', 'Amount', 'Ref', 'Note'], all.rows.map((r: any) => [r.date, r.no, r.party, r.source, r.amount, r.refs, r.note])); };
   return (
     <div>
-      <PageHeader title={m.plural} subtitle={data ? <>{data.total} voucher(s) · <Money value={data.sums.total} /></> : ' '}
+      <PageHeader title={m.plural}
         actions={<>
-          <HistoryButton entities={[kind]} />
-          <Button variant="ghost" icon={<Download className="size-4" />} onClick={async () => { const all = await rpc('vouchers.listVouchers', kind, { ...args, page: 1, size: 5000 }); downloadCsv(m.plural, ['Date', 'No', 'Party', 'Source', 'Amount', 'Ref', 'Note'], all.rows.map((r: any) => [r.date, r.no, r.party, r.source, r.amount, r.refs, r.note])); }}>CSV</Button>
-          {can(m.module, 'write') && <Button variant="primary" icon={<Plus className="size-4" />} href={`/vouchers/${kind}/new`}>New {m.label.toLowerCase()}</Button>}
+          <RowMenu button="More" actions={[
+            { label: 'Export to CSV', icon: <Download className="size-4" />, onClick: exportCsv },
+            { label: 'Change history', icon: <History className="size-4" />, onClick: () => setHistoryOpen(true) },
+          ]} />
+          {can(m.module, 'write') && <Button variant="primary" icon={<Plus className="size-4" />} href={'/vouchers/' + kind + '/new'}>New {m.label.toLowerCase()}</Button>}
         </>} />
       {error && <ErrorBox error={error} onRetry={reload} />}
-      <Card pad={false}>
-        <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
-          <SearchInput value={q} onChange={v => { setQ(v); setPage(1); }} placeholder="Voucher no, ledger, ref, cheque…" className="w-full sm:w-80" />
-          <DateRange from={from} to={to} onChange={(a, b) => { setFrom(a); setTo(b); setPage(1); }} />
-        </div>
-        <DataTable columns={cols} rows={data?.rows ?? []} loading={loading} onRowClick={r => router.push(`/vouchers/${kind}/${r.id}`)} totals={data ? { amount: data.rows.reduce((a: number, r: any) => a + r.amount, 0) } : undefined} />
-        {data && <Pager page={page} size={size} total={data.total} onPage={setPage} onSize={s => { setSize(s); setPage(1); }} />}
-      </Card>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <SearchInput value={q} onChange={v => { setQ(v); setPage(1); }} placeholder="Voucher number, ledger, reference or cheque" className="w-full sm:w-96" />
+        <DateRange from={from} to={to} onChange={(a, b) => { setFrom(a); setTo(b); setPage(1); }} />
+        {data && <span className="ml-auto text-[13px] text-muted">{num(data.total)} voucher{data.total === 1 ? '' : 's'} · <span className="text-ink">{money(data.sums.total)}</span></span>}
+      </div>
+      <DataTable bleed columns={cols} rows={data?.rows ?? []} loading={loading} onRowClick={r => router.push('/vouchers/' + kind + '/' + r.id)} totals={data && data.rows.length ? { amount: data.rows.reduce((a: number, r: any) => a + r.amount, 0) } : undefined}
+        empty={<div className="py-14 text-center text-[14px] text-muted">No {m.plural.toLowerCase()} in this period.</div>} />
+      {data && data.total > size && <Pager flush page={page} size={size} total={data.total} onPage={setPage} onSize={s => { setSize(s); setPage(1); }} />}
+      <HistoryDrawer open={historyOpen} onClose={() => setHistoryOpen(false)} entities={[kind]} />
     </div>
   );
 }
@@ -226,17 +231,17 @@ function VView({ kind, id }: { kind: VKind; id: number }) {
           {can(m.module, 'edit') && <Button icon={<Pencil className="size-4" />} href={`/vouchers/${kind}/${id}/edit`}>Edit</Button>}
           {can(m.module, 'delete') && <Button variant="ghost" icon={<Trash2 className="size-4" />} onClick={del}>Delete</Button>}
         </>} />
-      <div className="print-area mx-auto w-[210mm] max-w-full rounded-xl border border-line bg-white p-[12mm] text-[12px] text-black shadow-card">
+      <div className="print-area mx-auto w-[210mm] max-w-full rounded-lg border border-line bg-white p-[12mm] text-[12px] text-black">
         <div className="flex items-start justify-between border-b-2 border-black pb-3">
           <div><p className="text-xl font-bold">{data.company?.name}</p><p className="text-xs">{data.company?.address}</p><p className="text-xs">{data.company?.mobile}</p></div>
-          <div className="text-right"><p className="text-lg font-bold uppercase">{m.label}</p><p className="num font-semibold">{j.no}</p><p className="text-xs">Date: {date(j.date)}</p></div>
+          <div className="text-right"><p className="text-[20px] font-semibold">{m.label}</p><p className="num font-semibold">{j.no}</p><p className="text-xs">Date: {date(j.date)}</p></div>
         </div>
         <table className="mt-5 w-full border-collapse text-[11.5px]">
           <thead><tr className="border-y border-black bg-neutral-100 text-left"><th className="px-2 py-1.5">Ledger</th><th className="px-2 py-1.5">Details</th><th className="px-2 py-1.5 text-right">Debit</th><th className="px-2 py-1.5 text-right">Credit</th></tr></thead>
           <tbody>
             {data.lines.map((l: any) => (
               <tr key={l.id} className="border-b border-neutral-300 align-top">
-                <td className="px-2 py-1.5"><p className="font-medium">{l.ledger_name}</p><p className="text-[10.5px] text-neutral-600">{l.ledger_code}</p></td>
+                <td className="px-2 py-1.5"><p className="font-medium">{l.ledger_name}</p><p className="text-[11px] text-neutral-600">{l.ledger_code}</p></td>
                 <td className="px-2 py-1.5 text-[11px]">{[l.memo, l.ref && `Ref: ${l.ref}`, l.cheque_no && `Cheque ${l.cheque_no}${l.cheque_date ? ` (${date(l.cheque_date)})` : ''}`, l.ref_doc_no && `Invoice ${l.ref_doc_no}`, l.xrate && `Rate ${l.xrate}`].filter(Boolean).join(' · ')}</td>
                 <td className="num px-2 py-1.5 text-right">{l.debit ? money(l.debit, false) : ''}</td>
                 <td className="num px-2 py-1.5 text-right">{l.credit ? money(l.credit, false) : ''}</td>
